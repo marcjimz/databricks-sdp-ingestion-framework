@@ -1,0 +1,5 @@
+# Pipeline group = one pipeline (ingest-facets-claims-<env>) = one Qlik task folder.
+group: claims
+description: Claim headers and claim lines.
+domain: claims
+landing_folder: claims

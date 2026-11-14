@@ -1,0 +1,15 @@
+table,column,position,data_type,nullable,primary_key_position,description
+CMC_CLCL_CLAIM,CLCL_ID,1,char(12),N,1,Claim identifier
+CMC_CLCL_CLAIM,MEME_CK,2,int,N,,Member contrived key
+CMC_CLCL_CLAIM,GRGR_CK,3,int,N,,Group contrived key
+CMC_CLCL_CLAIM,CLCL_CL_TYPE,4,char(1),Y,,Claim type (M medical / D dental)
+CMC_CLCL_CLAIM,CLCL_CUR_STS,5,char(2),Y,,Current claim status
+CMC_CLCL_CLAIM,CLCL_LOW_SVC_DT,6,datetime,Y,,Earliest service date
+CMC_CLCL_CLAIM,CLCL_TOT_CHG,7,money,Y,,Total charge
+CMC_CLCL_CLAIM,CLCL_TOT_PAYABLE,8,money,Y,,Total payable
+CMC_CDML_CL_LINE,CLCL_ID,1,char(12),N,1,Claim identifier
+CMC_CDML_CL_LINE,CDML_SEQ_NO,2,smallint,N,2,Claim line sequence
+CMC_CDML_CL_LINE,IPCD_ID,3,char(7),Y,,Procedure code
+CMC_CDML_CL_LINE,CDML_FROM_DT,4,datetime,Y,,Line from-date
+CMC_CDML_CL_LINE,CDML_CHG_AMT,5,money,Y,,Line charge
+CMC_CDML_CL_LINE,CDML_PAID_AMT,6,money,Y,,Line paid amount

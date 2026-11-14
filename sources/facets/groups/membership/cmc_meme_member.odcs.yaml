@@ -1,0 +1,93 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: urn:ingest:facets:cmc_meme_member
+name: facets.cmc_meme_member
+version: 1.0.0
+status: active
+domain: membership
+dataProduct: facets
+description:
+  purpose: Operational replica of facets CMC_MEME_MEMBER.
+team:
+  name: membership-data
+  members:
+  - username: membership-data
+    role: owner
+schema:
+- name: cmc_meme_member
+  physicalName: CMC_MEME_MEMBER
+  logicalType: object
+  physicalType: table
+  description: facets CMC_MEME_MEMBER
+  properties:
+  - name: MEME_CK
+    logicalType: integer
+    physicalType: int
+    primaryKey: true
+    primaryKeyPosition: 1
+    required: true
+    description: Member contrived key
+  - name: SBSB_CK
+    logicalType: integer
+    physicalType: int
+    required: true
+    description: Subscriber contrived key
+  - name: GRGR_CK
+    logicalType: integer
+    physicalType: int
+    required: true
+    description: Group contrived key
+  - name: MEME_SFX
+    logicalType: integer
+    physicalType: int
+    required: true
+    description: Member suffix
+  - name: MEME_LAST_NAME
+    logicalType: string
+    physicalType: string
+    description: Member last name
+  - name: MEME_FIRST_NAME
+    logicalType: string
+    physicalType: string
+    description: Member first name
+  - name: MEME_SEX
+    logicalType: string
+    physicalType: string
+    description: Member sex
+    quality:
+    - type: custom
+      engine: databricks-sdp
+      name: member_sex_valid
+      dimension: conformity
+      implementation: ${column} IS NULL OR ${column} IN ('M', 'F', 'U')
+      customProperties:
+      - property: action
+        value: warn
+    examples:
+    - M
+    - F
+    - U
+  - name: MEME_BIRTH_DT
+    logicalType: timestamp
+    physicalType: timestamp
+    description: Member birth date
+    quality:
+    - type: custom
+      engine: databricks-sdp
+      name: member_birth_date_not_future
+      dimension: accuracy
+      implementation: ${column} IS NULL OR ${column} <= current_timestamp()
+      customProperties:
+      - property: action
+        value: warn
+  quality:
+  - type: text
+    description: One row per member (MEME_CK); history kept as SCD2 in silver.
+slaProperties:
+- property: latency
+  value: 60
+  unit: m
+  description: Change visible in silver
+customProperties:
+- property: dataClassification
+  value: phi

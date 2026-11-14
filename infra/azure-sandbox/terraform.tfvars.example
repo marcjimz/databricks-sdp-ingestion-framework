@@ -1,0 +1,9 @@
+# cp terraform.tfvars.example terraform.tfvars   (gitignored) and fill in.
+# The subscription, the Databricks account and the metastore must all be in the SAME Entra tenant.
+subscription_id       = "00000000-0000-0000-0000-000000000000"
+tenant_id             = "00000000-0000-0000-0000-000000000000"
+databricks_account_id = "00000000-0000-0000-0000-000000000000"
+metastore_id          = "00000000-0000-0000-0000-000000000000" # regional metastore in `location`
+owner                 = "you@example.com"
+prefix                = "sdpif"
+location              = "eastus2"

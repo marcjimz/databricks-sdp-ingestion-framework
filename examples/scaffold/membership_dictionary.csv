@@ -1,0 +1,21 @@
+table,column,position,data_type,nullable,primary_key_position,description
+CMC_GRGR_GROUP,GRGR_CK,1,int,N,1,Group contrived key
+CMC_GRGR_GROUP,GRGR_ID,2,char(8),N,,Group identifier
+CMC_GRGR_GROUP,GRGR_NAME,3,varchar(50),Y,,Group name
+CMC_GRGR_GROUP,GRGR_STS,4,char(2),Y,,Group status
+CMC_GRGR_GROUP,GRGR_ORIG_EFF_DT,5,datetime,Y,,Original effective date
+CMC_GRGR_GROUP,GRGR_TERM_DT,6,datetime,Y,,Termination date
+CMC_SBSB_SUBSC,SBSB_CK,1,int,N,1,Subscriber contrived key
+CMC_SBSB_SUBSC,GRGR_CK,2,int,N,,Group contrived key
+CMC_SBSB_SUBSC,SBSB_ID,3,char(9),N,,Subscriber identifier
+CMC_SBSB_SUBSC,SBSB_LAST_NAME,4,varchar(35),Y,,Subscriber last name
+CMC_SBSB_SUBSC,SBSB_FIRST_NAME,5,varchar(15),Y,,Subscriber first name
+CMC_SBSB_SUBSC,SBSB_ORIG_EFF_DT,6,datetime,Y,,Original effective date
+CMC_MEME_MEMBER,MEME_CK,1,int,N,1,Member contrived key
+CMC_MEME_MEMBER,SBSB_CK,2,int,N,,Subscriber contrived key
+CMC_MEME_MEMBER,GRGR_CK,3,int,N,,Group contrived key
+CMC_MEME_MEMBER,MEME_SFX,4,smallint,N,,Member suffix
+CMC_MEME_MEMBER,MEME_LAST_NAME,5,varchar(35),Y,,Member last name
+CMC_MEME_MEMBER,MEME_FIRST_NAME,6,varchar(15),Y,,Member first name
+CMC_MEME_MEMBER,MEME_SEX,7,char(1),Y,,Member sex
+CMC_MEME_MEMBER,MEME_BIRTH_DT,8,datetime,Y,,Member birth date

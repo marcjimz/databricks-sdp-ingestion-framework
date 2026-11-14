@@ -1,0 +1,89 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: urn:ingest:facets:cmc_clcl_claim
+name: facets.cmc_clcl_claim
+version: 1.0.0
+status: active
+domain: claims
+dataProduct: facets
+description:
+  purpose: Operational replica of facets CMC_CLCL_CLAIM.
+team:
+  name: claims-data
+  members:
+  - username: claims-data
+    role: owner
+schema:
+- name: cmc_clcl_claim
+  physicalName: CMC_CLCL_CLAIM
+  logicalType: object
+  physicalType: table
+  description: facets CMC_CLCL_CLAIM
+  properties:
+  - name: CLCL_ID
+    logicalType: string
+    physicalType: string
+    primaryKey: true
+    primaryKeyPosition: 1
+    required: true
+    description: Claim identifier
+  - name: MEME_CK
+    logicalType: integer
+    physicalType: int
+    required: true
+    description: Member contrived key
+  - name: GRGR_CK
+    logicalType: integer
+    physicalType: int
+    required: true
+    description: Group contrived key
+  - name: CLCL_CL_TYPE
+    logicalType: string
+    physicalType: string
+    description: Claim type (M medical / D dental)
+    quality:
+    - type: custom
+      engine: databricks-sdp
+      name: claim_type_valid
+      dimension: conformity
+      implementation: ${column} IS NULL OR ${column} IN ('M', 'D')
+      customProperties:
+      - property: action
+        value: warn
+    examples:
+    - M
+    - D
+  - name: CLCL_CUR_STS
+    logicalType: string
+    physicalType: string
+    description: Current claim status
+  - name: CLCL_LOW_SVC_DT
+    logicalType: timestamp
+    physicalType: timestamp
+    description: Earliest service date
+  - name: CLCL_TOT_CHG
+    logicalType: number
+    physicalType: decimal(19,4)
+    description: Total charge
+  - name: CLCL_TOT_PAYABLE
+    logicalType: number
+    physicalType: decimal(19,4)
+    description: Total payable
+  quality:
+  - type: custom
+    engine: databricks-sdp
+    name: claim_payable_within_charge
+    dimension: consistency
+    implementation: CLCL_TOT_PAYABLE IS NULL OR CLCL_TOT_CHG IS NULL OR CLCL_TOT_PAYABLE <= CLCL_TOT_CHG
+    customProperties:
+    - property: action
+      value: warn
+    description: Payable can never exceed the billed charge.
+slaProperties:
+- property: latency
+  value: 60
+  unit: m
+  description: Change visible in silver
+customProperties:
+- property: dataClassification
+  value: phi

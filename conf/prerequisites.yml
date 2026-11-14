@@ -1,0 +1,126 @@
+# Declared prerequisites — the required incoming step before any deploy.
+#
+#   make prereqs   <env> PROFILE=<admin profile>     applies the automatable ones
+#   make preflight <env> PROFILE=<deployer profile>  verifies all of them (read-only)
+#   make deploy    <env> PROFILE=<deployer profile>  runs preflight first; any failing
+#                                                    `required` check stops the deploy
+#
+# Values (catalog names, landing roots, warehouse, recipients) always come from
+# conf/environments/<env>.yml; this file only says what is checked, who owns it, and how to fix it.
+# `severity_by_env` overrides `severity` for specific environments.
+
+checks:
+  local_tools:
+    title: Databricks CLI >= 1.24 (data_quality_monitors + direct engine), Python >= 3.11, uv
+    severity: required
+    owner: you
+    automated: false
+    fix: "brew upgrade databricks (or see docs.databricks.com/dev-tools/cli/install); install uv"
+
+  env_placeholders:
+    title: No unfilled <placeholder> values left in the environment config
+    severity: required
+    owner: you
+    automated: false
+    fix: "Fill conf/environments/<env>.yml, or put personal values in conf/environments/<env>.local.yml"
+
+  workspace_host:
+    title: PROFILE authenticates against the environment's workspace_host
+    severity: required
+    owner: you
+    automated: false
+    fix: "Use the CLI profile for this environment's workspace, or correct workspace_host"
+
+  deployer_identity:
+    title: Deploying identity is the environment's deployer service principal
+    severity: required
+    severity_by_env: {sandbox: recommended}
+    owner: platform team
+    automated: false
+    fix: "Create the SP + OAuth secret, add a CLI profile for it, set deployer.service_principal"
+
+  catalogs:
+    title: Bronze and silver catalogs exist
+    severity: required
+    owner: platform team (sandbox - make prereqs)
+    automated: sandbox
+    fix: "CREATE CATALOG bronze_<env> / silver_<env> (managed location on governed storage)"
+
+  catalog_privileges:
+    title: Deployer has USE CATALOG and CREATE SCHEMA on both catalogs
+    severity: required
+    owner: catalog owner
+    automated: true
+    fix: "make prereqs <env> PROFILE=<catalog owner>"
+
+  landing_external_location:
+    title: Every landing root is covered by a Unity Catalog external location
+    severity: required
+    owner: platform team (sandbox - make prereqs)
+    automated: sandbox
+    fix: "Create a storage credential + external location covering the Qlik landing container"
+
+  file_events:
+    title: File events are enabled on the landing external location (event-driven ingestion)
+    severity: required
+    owner: platform team
+    automated: sandbox
+    fix: "Catalog > External locations > Edit > Advanced > Enable file events (Automatic), then Test connection"
+
+  landing_privileges:
+    title: Deployer has READ FILES on the landing location (and WRITE FILES when seed is enabled)
+    severity: required
+    owner: external location owner
+    automated: true
+    fix: "make prereqs <env> PROFILE=<external location owner>"
+
+  warehouse:
+    title: The alerts SQL warehouse exists and the deployer has CAN USE on it
+    severity: required
+    owner: workspace admin
+    automated: true
+    fix: "Set alerts.warehouse_name to an existing warehouse; make prereqs grants CAN USE"
+
+  tag_policies:
+    title: Governed tag policies exist with every value this environment applies
+    severity: required
+    severity_by_env: {sandbox: recommended}
+    owner: account admin (tag policy CREATE / MANAGE)
+    automated: true
+    fix: "make prereqs <env> PROFILE=<account-level tag admin>; or set governance.governed_tags: false"
+
+  alert_recipients:
+    title: At least one alert and one DQM recipient (email or notification destination) configured
+    severity: recommended
+    owner: you
+    automated: false
+    fix: "Set alerts.notify / dqm.notify in the environment config"
+
+  notification_destinations:
+    title: Every configured notification destination id exists
+    severity: required
+    owner: workspace admin
+    automated: false
+    fix: "Settings > Notifications > Notification destinations; copy the id into the env config"
+
+  system_tables:
+    title: Deployer can read system.data_quality_monitoring (only when dqm_system_table_alert is on)
+    severity: required
+    owner: account admin
+    automated: false
+    fix: "GRANT USE SCHEMA, SELECT ON SCHEMA system.data_quality_monitoring TO `<deployer>`"
+
+  connections:
+    title: Unity Catalog connections exist for every lakeflow_connect source in scope
+    severity: required
+    owner: platform team
+    automated: false
+    fix: "Create the connection (e.g. Salesforce OAuth) in Catalog > Connections"
+
+  nonprod_data_attestation:
+    title: Non-production environments have an approved data-handling attestation for source data
+    severity: recommended
+    severity_by_env: {prod: skip}
+    owner: data governance
+    automated: false
+    fix: "Confirm dev/tst source data is masked or approved for PHI, then set governance.nonprod_data_attested: true"

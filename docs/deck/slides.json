@@ -1,0 +1,213 @@
+{
+  "title": "Declarative Ingestion for the Operational Lakehouse",
+  "author": "Databricks",
+  "date": "November 2026",
+  "slides": [
+    {
+      "type": "title",
+      "title": "Declarative Ingestion for the Operational Lakehouse",
+      "subtitle": "A config-driven bronze and silver framework on Lakeflow Spark Declarative Pipelines",
+      "author": "Databricks",
+      "date": "November 2026"
+    },
+    {
+      "type": "two-column",
+      "title": "From hand-built tables to declared pipelines",
+      "left_header": "Today",
+      "left": [
+        "Silver tables built and maintained table by table",
+        "No common contract for schema, keys or quality",
+        "Cadence and scope differ per environment by hand",
+        "Hard to trace a table back to the code behind it"
+      ],
+      "right_header": "Target",
+      "right": [
+        "New bronze catalog owned end to end by the framework",
+        "Silver declared by pipelines, replacing the legacy tables",
+        "One data contract per table, enforced in CI",
+        "Every table tagged to its pipeline, config and code"
+      ],
+      "notes": "The change is ownership: nothing lands in bronze or silver unless configuration declares it, and the framework detects anything that does.",
+      "subtitle": "Ownership of bronze and silver moves from people to configuration"
+    },
+    {
+      "type": "card-right",
+      "title": "Architecture: Qlik files to governed silver",
+      "bullets": [
+        "Qlik Replicate lands full-load and change files per table",
+        "Auto Loader picks them up through file events, never listing",
+        "Bronze: append-only history with every Qlik header kept",
+        "Silver: AUTO CDC on contract keys, SCD1 or SCD2 per table",
+        "Ops schema: event logs, table registry, audits"
+      ],
+      "card_content": "Qlik Replicate\n  <group>/<TABLE>/      full load\n  <group>/<TABLE>__ct/  changes\n        |  file events\n        v\nbronze_<env>.facets.<table>\n  history, contract schema\n        |  drop before-images\n        |  contract expectations\n        v  AUTO CDC\nsilver_<env>.facets.<table>\n  current state / history",
+      "notes": "Bronze is the system of record and is never reset in prod. A Qlik table reload rebuilds only that table's silver from bronze using a recorded cutoff.",
+      "subtitle": "Event-driven, contract-governed, one generic pipeline per group"
+    },
+    {
+      "type": "three-column",
+      "title": "Onboarding is configuration, not code",
+      "subtitle": "~2,700 source tables become ~20 pipelines with zero per-table pipeline code",
+      "columns": [
+        {
+          "header": "A table = 2 files",
+          "items": [
+            "table.yml: a few lines of ops config",
+            "contract.odcs.yaml: columns, keys, quality, SLA",
+            "Scaffolded from a data dictionary or Qlik .dfm"
+          ]
+        },
+        {
+          "header": "A group = 1 pipeline",
+          "items": [
+            "Up to 150 tables, one Qlik task folder",
+            "One generic SDP entrypoint for every group",
+            "Event log, notifications and tags included"
+          ]
+        },
+        {
+          "header": "An environment = 1 file",
+          "items": [
+            "prod: continuous, always on",
+            "dev / tst: weekly run over 1 day of changes",
+            "sandbox: on file arrival, synthetic Qlik data"
+          ]
+        }
+      ],
+      "notes": "Weekly rather than monthly in dev/tst: the file-events cache expires after 7 idle days, and the framework refuses any cadence that would fall back to directory listing."
+    },
+    {
+      "type": "timeline",
+      "title": "Operations: from any table to its code in two hops",
+      "steps": [
+        {
+          "title": "Table",
+          "description": "Tag ingest_pipeline names the pipeline that builds it"
+        },
+        {
+          "title": "Pipeline",
+          "description": "Tags ingest_config and ingest_code point into the repo, plus the git commit"
+        },
+        {
+          "title": "Repo",
+          "description": "sources/<source>/groups/<group>/ holds the table config and its contract"
+        },
+        {
+          "title": "make trace",
+          "description": "One command walks the path and flags tag drift"
+        }
+      ],
+      "notes": "Table tags are governed tag policies whose allowed values are generated from configuration. A governance job applies them because SDP cannot tag its own tables."
+    },
+    {
+      "type": "icon-grid",
+      "title": "Quality and health are declared, not bolted on",
+      "items": [
+        {
+          "icon": "📜",
+          "title": "Data contracts",
+          "description": "ODCS v3.2.0 per table; lint fails without one"
+        },
+        {
+          "icon": "✅",
+          "title": "Expectations",
+          "description": "Contract rules become SDP warn or fail checks"
+        },
+        {
+          "icon": "📈",
+          "title": "Data quality monitoring",
+          "description": "Freshness and completeness on every schema"
+        },
+        {
+          "icon": "🔔",
+          "title": "Health alerts",
+          "description": "Failures, overdue pipelines, undeclared tables, tag drift"
+        },
+        {
+          "icon": "🚦",
+          "title": "Prerequisite gate",
+          "description": "Deploy stops until every prerequisite is met"
+        },
+        {
+          "icon": "⚡",
+          "title": "Event-driven",
+          "description": "Managed file events only, enforced by tests"
+        }
+      ]
+    },
+    {
+      "type": "two-column",
+      "title": "One framework, many sources",
+      "left_header": "Today: Facets via Qlik Replicate",
+      "left": [
+        "qlik_cdc_files source adapter",
+        "Full-load and change files to bronze and silver",
+        "Reload runbook rebuilds silver from bronze"
+      ],
+      "right_header": "Next: Lakeflow Connect, e.g. Salesforce",
+      "right": [
+        "lakeflow_connect adapter emits a managed pipeline",
+        "Same per-table config and data contract",
+        "Inherits tags, DQM, alerts and prerequisites"
+      ],
+      "notes": "An adapter only describes what is specific to its source. Naming, tags, event logs, cadence, schemas, DQM and alerts are applied around it, and a test proves any new source type inherits them.",
+      "subtitle": "Source adapters plug in; governance is inherited, not rebuilt"
+    },
+    {
+      "type": "timeline",
+      "title": "Replacing legacy silver, group by group",
+      "steps": [
+        {
+          "title": "Land bronze",
+          "description": "Framework bronze runs in parallel with legacy feeds"
+        },
+        {
+          "title": "Build silver alongside",
+          "description": "New catalog, so names never collide with legacy"
+        },
+        {
+          "title": "Prove parity",
+          "description": "Counts, keys and column hashes versus legacy"
+        },
+        {
+          "title": "Cut over",
+          "description": "Repoint consumers or swap in compatibility views"
+        },
+        {
+          "title": "Decommission",
+          "description": "Retire legacy jobs and tables after retention"
+        }
+      ]
+    },
+    {
+      "type": "checklist",
+      "title": "Where we are and what we need",
+      "items": [
+        {
+          "text": "Framework core, contracts, lint and tests in place",
+          "checked": true
+        },
+        {
+          "text": "Prove end to end in a sandbox with synthetic Qlik files",
+          "checked": false
+        },
+        {
+          "text": "Platform: catalogs, file-event location, deployer SPs",
+          "checked": false
+        },
+        {
+          "text": "Qlik: Parquet output, Store Changes, one task per group",
+          "checked": false
+        },
+        {
+          "text": "Onboard first groups to dev; agree parity thresholds",
+          "checked": false
+        }
+      ]
+    },
+    {
+      "type": "closing",
+      "title": "Thank you"
+    }
+  ]
+}

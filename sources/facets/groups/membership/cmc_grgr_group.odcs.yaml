@@ -1,0 +1,58 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: urn:ingest:facets:cmc_grgr_group
+name: facets.cmc_grgr_group
+version: 1.0.0
+status: active
+domain: membership
+dataProduct: facets
+description:
+  purpose: Operational replica of facets CMC_GRGR_GROUP.
+team:
+  name: membership-data
+  members:
+  - username: membership-data
+    role: owner
+schema:
+- name: cmc_grgr_group
+  physicalName: CMC_GRGR_GROUP
+  logicalType: object
+  physicalType: table
+  description: facets CMC_GRGR_GROUP
+  properties:
+  - name: GRGR_CK
+    logicalType: integer
+    physicalType: int
+    primaryKey: true
+    primaryKeyPosition: 1
+    required: true
+    description: Group contrived key
+  - name: GRGR_ID
+    logicalType: string
+    physicalType: string
+    required: true
+    description: Group identifier
+  - name: GRGR_NAME
+    logicalType: string
+    physicalType: string
+    description: Group name
+  - name: GRGR_STS
+    logicalType: string
+    physicalType: string
+    description: Group status
+  - name: GRGR_ORIG_EFF_DT
+    logicalType: timestamp
+    physicalType: timestamp
+    description: Original effective date
+  - name: GRGR_TERM_DT
+    logicalType: timestamp
+    physicalType: timestamp
+    description: Termination date
+slaProperties:
+- property: latency
+  value: 60
+  unit: m
+  description: Change visible in silver
+customProperties:
+- property: dataClassification
+  value: phi

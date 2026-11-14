@@ -1,0 +1,59 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: urn:ingest:facets:cmc_sbsb_subsc
+name: facets.cmc_sbsb_subsc
+version: 1.0.0
+status: active
+domain: membership
+dataProduct: facets
+description:
+  purpose: Operational replica of facets CMC_SBSB_SUBSC.
+team:
+  name: membership-data
+  members:
+  - username: membership-data
+    role: owner
+schema:
+- name: cmc_sbsb_subsc
+  physicalName: CMC_SBSB_SUBSC
+  logicalType: object
+  physicalType: table
+  description: facets CMC_SBSB_SUBSC
+  properties:
+  - name: SBSB_CK
+    logicalType: integer
+    physicalType: int
+    primaryKey: true
+    primaryKeyPosition: 1
+    required: true
+    description: Subscriber contrived key
+  - name: GRGR_CK
+    logicalType: integer
+    physicalType: int
+    required: true
+    description: Group contrived key
+  - name: SBSB_ID
+    logicalType: string
+    physicalType: string
+    required: true
+    description: Subscriber identifier
+  - name: SBSB_LAST_NAME
+    logicalType: string
+    physicalType: string
+    description: Subscriber last name
+  - name: SBSB_FIRST_NAME
+    logicalType: string
+    physicalType: string
+    description: Subscriber first name
+  - name: SBSB_ORIG_EFF_DT
+    logicalType: timestamp
+    physicalType: timestamp
+    description: Original effective date
+slaProperties:
+- property: latency
+  value: 60
+  unit: m
+  description: Change visible in silver
+customProperties:
+- property: dataClassification
+  value: phi

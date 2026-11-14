@@ -1,0 +1,70 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: urn:ingest:facets:cmc_cdml_cl_line
+name: facets.cmc_cdml_cl_line
+version: 1.0.0
+status: active
+domain: claims
+dataProduct: facets
+description:
+  purpose: Operational replica of facets CMC_CDML_CL_LINE.
+team:
+  name: claims-data
+  members:
+  - username: claims-data
+    role: owner
+schema:
+- name: cmc_cdml_cl_line
+  physicalName: CMC_CDML_CL_LINE
+  logicalType: object
+  physicalType: table
+  description: facets CMC_CDML_CL_LINE
+  properties:
+  - name: CLCL_ID
+    logicalType: string
+    physicalType: string
+    primaryKey: true
+    primaryKeyPosition: 1
+    required: true
+    description: Claim identifier
+  - name: CDML_SEQ_NO
+    logicalType: integer
+    physicalType: int
+    primaryKey: true
+    primaryKeyPosition: 2
+    required: true
+    description: Claim line sequence
+    quality:
+    - type: custom
+      engine: databricks-sdp
+      name: claim_line_seq_positive
+      dimension: accuracy
+      implementation: ${column} > 0
+      customProperties:
+      - property: action
+        value: fail
+      description: 'A non-positive line number means the replica is corrupt: stop the update.'
+  - name: IPCD_ID
+    logicalType: string
+    physicalType: string
+    description: Procedure code
+  - name: CDML_FROM_DT
+    logicalType: timestamp
+    physicalType: timestamp
+    description: Line from-date
+  - name: CDML_CHG_AMT
+    logicalType: number
+    physicalType: decimal(19,4)
+    description: Line charge
+  - name: CDML_PAID_AMT
+    logicalType: number
+    physicalType: decimal(19,4)
+    description: Line paid amount
+slaProperties:
+- property: latency
+  value: 60
+  unit: m
+  description: Change visible in silver
+customProperties:
+- property: dataClassification
+  value: phi

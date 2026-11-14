@@ -1,0 +1,65 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: urn:ingest:facets:cmc_prpr_prov
+name: facets.cmc_prpr_prov
+version: 1.0.0
+status: active
+domain: provider
+dataProduct: facets
+description:
+  purpose: Operational replica of facets CMC_PRPR_PROV.
+team:
+  name: provider-data
+  members:
+  - username: provider-data
+    role: owner
+schema:
+- name: cmc_prpr_prov
+  physicalName: CMC_PRPR_PROV
+  logicalType: object
+  physicalType: table
+  description: facets CMC_PRPR_PROV
+  properties:
+  - name: PRPR_ID
+    logicalType: string
+    physicalType: string
+    primaryKey: true
+    primaryKeyPosition: 1
+    required: true
+  - name: PRPR_NAME
+    logicalType: string
+    physicalType: string
+  - name: PRPR_NPI
+    logicalType: string
+    physicalType: string
+    quality:
+    - type: custom
+      engine: databricks-sdp
+      name: provider_npi_format
+      dimension: conformity
+      implementation: ${column} IS NULL OR ${column} RLIKE '^[0-9]{10}$'
+      customProperties:
+      - property: action
+        value: warn
+    examples:
+    - '1234567893'
+    - '1093817465'
+    - '1528061481'
+    - '1609876543'
+  - name: PRPR_ENTITY
+    logicalType: string
+    physicalType: string
+  - name: PRPR_STS
+    logicalType: string
+    physicalType: string
+  - name: PRPR_TERM_DT
+    logicalType: timestamp
+    physicalType: timestamp
+slaProperties:
+- property: latency
+  value: 60
+  unit: m
+  description: Change visible in silver
+customProperties:
+- property: dataClassification
+  value: phi

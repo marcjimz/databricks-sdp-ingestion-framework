@@ -1,0 +1,62 @@
+# tst: integration/test workspace. Deployed only by the deployer service principal.
+
+env: tst
+short: tst
+description: Test. Weekly run over one day of changes.
+
+workspace_host: "https://<tst-workspace>.azuredatabricks.net"
+
+deployer:
+  service_principal: "<tst-deployer-sp-application-id>"
+
+catalogs:
+  bronze: bronze_tst
+  silver: silver_tst
+
+landing:
+  facets: "abfss://<container>@<storage-account>.dfs.core.windows.net/qlik/facets"
+
+cadence:
+  default: weekly_sample
+  overrides: {}
+
+scope:
+  # Start small: two domains (= two pipelines). Uncomment a group to onboard it; empty lists = everything declared.
+  sources: []
+  groups:
+    - facets/membership
+    - facets/claims
+    # - facets/provider
+  tables: []
+
+governance:
+  tag_prefix: ""
+  governed_tags: true
+  reader_groups: []
+  admin_groups: []
+
+dqm:
+  enabled: true
+  notify:
+    emails: []
+    destination_ids: []
+
+alerts:
+  enabled: true
+  warehouse_name: "<tst-sql-warehouse-name>"
+  schedule: "0 0 7 * * ?"
+  lookback_minutes: 1440       # daily evaluation window
+  timezone: UTC
+  notify:
+    emails: []
+    destination_ids: []
+  dqm_system_table_alert: false
+
+pipelines:
+  serverless: true
+  channel: CURRENT
+  prevent_destroy: false
+  bronze_reset_allowed: true
+
+seed:
+  enabled: false

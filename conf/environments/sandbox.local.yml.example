@@ -1,0 +1,34 @@
+# Copy to sandbox.local.yml (gitignored) and fill in, or let `make infra-sandbox` write the
+# storage + landing sections for you. Deep-merged over sandbox.yml.
+deployer:
+  service_principal: "00000000-0000-0000-0000-000000000000"   # deployer SP application id
+
+alerts:
+  warehouse_name: Serverless Starter Warehouse
+  notify:
+    emails: [me@example.com]
+
+dqm:
+  notify:
+    emails: [me@example.com]
+
+governance:
+  nonprod_data_attested: true      # sandbox only ever holds synthetic data
+
+# Azure (written by `make infra-sandbox` from infra/azure-sandbox):
+landing:
+  facets: abfss://landing@mystorageacct.dfs.core.windows.net/facets
+storage:
+  create: true
+  cloud: azure
+  credential_name: sdpif-sbx-credential
+  external_location_name: sdpif-sbx-landing
+  access_connector_id: /subscriptions/<sub>/resourceGroups/rg-sdpif-sandbox/providers/Microsoft.Databricks/accessConnectors/<name>
+  resource_group: rg-sdpif-sandbox
+  subscription_id: <sub>
+  url: abfss://landing@mystorageacct.dfs.core.windows.net/
+  catalog_storage_root: abfss://catalogs@mystorageacct.dfs.core.windows.net/
+
+# AWS alternative:
+#   storage: {create: true, cloud: aws, iam_role_arn: arn:aws:iam::123456789012:role/uc-file-events,
+#             url: s3://my-bucket/, catalog_storage_root: s3://my-bucket/catalogs/, ...}

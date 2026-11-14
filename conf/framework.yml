@@ -1,0 +1,100 @@
+# Framework-wide defaults. Environments (conf/environments/<env>.yml) and sources
+# (sources/<source>/source.yml) override these; nothing here is environment-specific.
+
+naming:
+  # {layer} = bronze | silver; catalogs themselves come from the environment file.
+  schema: "{source}"                         # bronze_<env>.facets / silver_<env>.facets
+  ops_schema: ingest_ops                     # lives in the bronze catalog
+  pipeline: "ingest-{source}-{group}-{env}"  # also the value of the ingest_pipeline tag
+  job: "ingest-{source}-{group}-{env}-trigger"
+  event_log: "event_log_{source}_{group}"
+
+limits:
+  # SDP hard limit is 1,000 tables per pipeline; each source table is bronze + silver.
+  max_tables_per_group: 150
+  # Auto Loader's managed file-events cache expires after 7 days idle; a longer gap
+  # silently falls back to a full directory listing, so triggered cadences must be <= 7 days.
+  max_triggered_gap_days: 7
+
+discovery:
+  # Event-driven only. Enforced by tests/enforcement and by `make preflight`.
+  mode: file_events
+
+expectations:
+  # `drop` is not allowed: dropping a CDC delete leaves a zombie row in silver.
+  allowed_actions: [warn, fail]
+  default_action: warn
+  # ODCS custom-rule engine name that maps to an SDP expectation.
+  sdp_engine: databricks-sdp
+
+layers:
+  bronze:
+    table_properties:
+      quality: bronze
+  silver:
+    table_properties:
+      quality: silver
+      delta.enableChangeDataFeed: "true"
+    cluster_by_auto: true
+
+# Cadence profiles. Environments pick a default and optional per-group overrides.
+#   continuous     always-on pipeline (lowest latency, highest cost)
+#   file_arrival   job fires on new files in the group's landing folder (file events)
+#   periodic       job runs every N units
+#   cron           job runs on a Quartz schedule; must declare max_gap_days
+cadence_profiles:
+  continuous:
+    mode: continuous
+    max_gap_minutes: 60
+  on_arrival:
+    mode: file_arrival
+    min_time_between_triggers_seconds: 60
+    wait_after_last_change_seconds: 60
+    max_run_duration_seconds: 3600
+    max_gap_minutes: 1440
+  every_15_minutes:
+    mode: periodic
+    interval: 15
+    unit: MINUTES
+    max_run_duration_seconds: 1800
+    max_gap_minutes: 60
+  weekly_sample:
+    # dev/tst default: once a week, only the last day's change files (baseline is read once).
+    mode: cron
+    quartz_cron_expression: "0 0 6 ? * MON"
+    timezone_id: UTC
+    max_gap_days: 7
+    ct_lookback_days: 1
+    max_run_duration_seconds: 7200
+    max_gap_minutes: 11520
+
+tags:
+  # Table tags are applied by the governance job (SDP cannot set UC tags itself).
+  # Pipeline/job tags are declared in the bundle. Environments may prefix every key.
+  table:
+    pipeline: ingest_pipeline
+    source: ingest_source
+    layer: ingest_layer
+  pipeline:
+    pipeline: ingest_pipeline
+    source: ingest_source
+    config: ingest_config
+    code: ingest_code
+    git_commit: ingest_git_commit
+  # Keys backed by account-level governed tag policies (allowed values generated from config).
+  governed: [ingest_pipeline, ingest_source, ingest_layer]
+
+alerts:
+  # Declared for every environment (tests/enforcement/test_bundle_rules.py).
+  required:
+    - expectation_failures
+    - pipeline_health
+    - undeclared_objects
+    - tag_drift
+  optional:
+    - dqm_unhealthy_tables
+
+governance_job:
+  # Registry publish + table tagging + undeclared-object audit. Also run by `make deploy`.
+  schedule: "0 30 * * * ?"
+  timezone: UTC

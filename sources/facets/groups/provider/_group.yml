@@ -1,0 +1,5 @@
+# Pipeline group = one pipeline (ingest-facets-provider-<env>) = one Qlik task folder.
+group: provider
+description: Provider master.
+domain: provider
+landing_folder: provider

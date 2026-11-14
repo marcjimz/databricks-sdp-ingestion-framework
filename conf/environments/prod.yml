@@ -1,0 +1,63 @@
+# prod: always-on. Deployed only by the deployer service principal; destroy is refused.
+
+env: prod
+short: prod
+description: Production. Continuous pipelines on live Qlik change data.
+
+workspace_host: "https://<prod-workspace>.azuredatabricks.net"
+
+deployer:
+  service_principal: "<prod-deployer-sp-application-id>"
+
+catalogs:
+  bronze: bronze_prod
+  silver: silver_prod
+
+landing:
+  facets: "abfss://<container>@<storage-account>.dfs.core.windows.net/qlik/facets"
+
+cadence:
+  # Always-on. To trade latency for cost on a group: overrides: {facets/<group>: on_arrival}
+  default: continuous
+  overrides: {}
+
+scope:
+  # Start small: two domains (= two pipelines). Uncomment a group to onboard it; empty lists = everything declared.
+  sources: []
+  groups:
+    - facets/membership
+    - facets/claims
+    # - facets/provider
+  tables: []
+
+governance:
+  tag_prefix: ""
+  governed_tags: true
+  reader_groups: []
+  admin_groups: []
+
+dqm:
+  enabled: true
+  notify:
+    emails: []
+    destination_ids: []
+
+alerts:
+  enabled: true
+  warehouse_name: "<prod-sql-warehouse-name>"
+  schedule: "0 0/15 * * * ?"
+  timezone: UTC
+  notify:
+    emails: []
+    destination_ids: []
+  dqm_system_table_alert: false
+
+pipelines:
+  serverless: true
+  channel: CURRENT
+  prevent_destroy: true
+  # Bronze is the system of record once landing has retention: block full refreshes.
+  bronze_reset_allowed: false
+
+seed:
+  enabled: false

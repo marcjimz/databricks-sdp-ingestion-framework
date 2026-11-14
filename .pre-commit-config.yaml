@@ -1,0 +1,24 @@
+# pre-commit install   — runs on every commit; same gates as `make lint`.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+        exclude: ^databricks\.yml$   # bundle interpolation (${...}) is valid YAML but kept out of strict checks
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-added-large-files
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: framework-lint
+        name: framework lint (every table has a valid, enforceable data contract)
+        entry: uv run --quiet python -m ingestion_framework.lint
+        language: system
+        pass_filenames: false
+        files: ^(conf|sources|contracts)/

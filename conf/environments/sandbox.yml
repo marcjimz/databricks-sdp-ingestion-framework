@@ -1,0 +1,84 @@
+# Sandbox: any workspace you control, proven end to end with synthetic Qlik files.
+# Personal and provisioned values go in sandbox.local.yml (gitignored):
+#   make infra-sandbox ...   provisions storage (infra/) and writes storage + landing there
+#   or copy sandbox.local.yml.example and fill it by hand.
+# Placeholders like <...> fail `make preflight`.
+
+env: sandbox
+short: sbx
+description: Self-service sandbox driven by synthetic Qlik Replicate files.
+
+# Optional guard: when set, preflight fails if PROFILE points at a different workspace.
+workspace_host: ""
+
+deployer:
+  # Application id of the deployer service principal. Empty = whoever PROFILE
+  # authenticates as (allowed in sandbox only; dev/tst/prod pin a service principal).
+  service_principal: ""
+
+# Prefixed: sandbox metastores are often shared, and catalog names are metastore-wide.
+catalogs:
+  bronze: sdpif_bronze_sbx
+  silver: sdpif_silver_sbx
+
+# Landing root per source: the cloud URL Qlik (or the seed job) writes to.
+# Must sit under a Unity Catalog external location with file events enabled.
+landing:
+  facets: "<landing-url>/facets"     # abfss://landing@<account>.dfs.core.windows.net/facets or s3://<bucket>/landing/facets
+
+cadence:
+  default: on_arrival
+  overrides: {}            # e.g. {facets/claims: continuous}
+
+scope:
+  # Start small: two domains (= two pipelines). Uncomment a group to onboard it; empty lists = everything declared.
+  sources: []
+  groups:
+    - facets/membership
+    - facets/claims
+    # - facets/provider
+  tables: []
+
+governance:
+  tag_prefix: sdpif_       # shared accounts already use generic keys like ingest_*/layer
+  governed_tags: true      # false = plain tags (preflight warns)
+  reader_groups: []
+  admin_groups: []
+
+dqm:
+  enabled: true
+  notify:
+    emails: []
+    destination_ids: []
+
+alerts:
+  enabled: true
+  warehouse_name: Serverless Starter Warehouse
+  schedule: "0 0/15 * * * ?"
+  timezone: UTC
+  notify:
+    emails: []
+    destination_ids: []
+  dqm_system_table_alert: false   # needs an account-admin grant on system.data_quality_monitoring
+
+pipelines:
+  serverless: true
+  channel: CURRENT
+  prevent_destroy: false
+  bronze_reset_allowed: true
+
+seed:
+  enabled: true            # synthetic Qlik generator job (never enable outside sandbox)
+
+# Sandbox-only storage bootstrap, created by `make prereqs sandbox` with an admin profile
+# (needs CREATE STORAGE CREDENTIAL / EXTERNAL LOCATION / CATALOG on the metastore).
+# `make infra-sandbox` writes the real values to sandbox.local.yml; shapes per cloud:
+#   azure: access_connector_id, resource_group, subscription_id   (file events: Azure queues)
+#   aws:   iam_role_arn                                           (file events: SQS)
+storage:
+  create: true
+  cloud: "<azure|aws>"
+  credential_name: sdpif-sbx-credential
+  external_location_name: sdpif-sbx-landing
+  url: "<landing-url>/"
+  catalog_storage_root: "<catalogs-url>/"

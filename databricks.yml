@@ -1,0 +1,80 @@
+# SDP Ingestion Framework — Declarative Automation Bundle.
+#
+# Every resource (schemas, pipelines, cadence jobs, governance job, data quality monitors,
+# alerts) is GENERATED from configuration by resources/__init__.py:
+#   conf/framework.yml              framework defaults (naming, cadence profiles, tags, limits)
+#   conf/environments/<target>.yml  per-environment values (catalogs, landing, cadence, recipients)
+#   sources/<source>/...            what is ingested: groups (= pipelines) and tables (+ contracts)
+#
+# Deploy with the Makefile, never by hand — it checks prerequisites and resolves variables:
+#   make deploy <target> PROFILE=<deployer CLI profile>
+#
+# Workspace hosts are intentionally NOT set here: the PROFILE decides the workspace, and
+# `make preflight` fails if it does not match workspace_host in the environment file.
+
+bundle:
+  name: sdp-ingestion-framework
+  # data_quality_monitors (schema anomaly detection) require the direct engine and CLI >= 1.24.
+  engine: direct
+  databricks_cli_version: ">= 1.24.0"
+
+python:
+  venv_path: .venv
+  resources:
+    - "resources:load_resources"
+
+sync:
+  # Gitignored per-environment overrides ARE deployed: runtime must load the same config the bundle was
+  # generated from (verified by a fingerprint in every pipeline and job). Never put secrets in them.
+  include:
+    - conf/environments/*.local.yml
+  # Only what pipelines and jobs read at runtime is uploaded. The CLI matches these at ANY depth, so
+  # no pattern may share a name with a directory under src/ (tests/enforcement/test_bundle_rules.py).
+  exclude:
+    - tests/**
+    - docs/**
+    - examples/**
+    - static/**
+    - infra/**
+    - "*.md"
+
+variables:
+  warehouse_id:
+    description: SQL warehouse for health alerts. Resolved by make from alerts.warehouse_name.
+    default: ""
+  deployer_sp:
+    description: Deployer service principal application id. Resolved by make from deployer.service_principal.
+    default: ""
+  dqm_user_ids:
+    description: Workspace user ids for DQM notifications, comma-separated. Resolved by make from dqm.notify.emails.
+    default: ""
+
+targets:
+  # Self-service sandbox: deploys as whoever PROFILE authenticates as (a service principal is
+  # recommended; preflight warns otherwise). Personal values live in sandbox.local.yml.
+  sandbox:
+    default: true
+    mode: production
+    workspace:
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+
+  dev:
+    mode: production
+    workspace:
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    run_as:
+      service_principal_name: ${var.deployer_sp}
+
+  tst:
+    mode: production
+    workspace:
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    run_as:
+      service_principal_name: ${var.deployer_sp}
+
+  prod:
+    mode: production
+    workspace:
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    run_as:
+      service_principal_name: ${var.deployer_sp}

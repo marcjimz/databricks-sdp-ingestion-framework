@@ -1,0 +1,5 @@
+# Pipeline group = one pipeline (ingest-facets-membership-<env>) = one Qlik task folder.
+group: membership
+description: Group, subscriber and member enrollment.
+domain: membership
+landing_folder: membership

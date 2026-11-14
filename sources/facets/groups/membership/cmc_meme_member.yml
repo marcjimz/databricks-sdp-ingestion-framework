@@ -1,0 +1,4 @@
+table: CMC_MEME_MEMBER
+enabled: true
+# Keep member history: silver is SCD type 2 (__START_AT / __END_AT).
+scd_type: 2

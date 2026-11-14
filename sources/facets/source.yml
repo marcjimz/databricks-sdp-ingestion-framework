@@ -1,0 +1,38 @@
+# Facets core administration platform, replicated by Qlik Replicate to cloud storage.
+# Adapter: qlik_cdc_files (src/ingestion_framework/adapters/qlik_cdc_files).
+#
+# Expected landing layout under conf/environments/<env>.yml `landing.facets`:
+#   <landing>/<group landing_folder>/<TABLE>/        full load files   (no header__ columns)
+#   <landing>/<group landing_folder>/<TABLE>__ct/    change files      (header__ columns)
+# One Qlik task per group folder keeps file-arrival triggers scoped to one pipeline.
+
+source: facets
+type: qlik_cdc_files
+description: Facets core administration (membership, claims, provider) via Qlik Replicate.
+
+qlik:
+  file_format: parquet          # recommended Qlik ADLS/S3 endpoint output; csv/json also accepted
+  ct_suffix: __ct
+  dfm_extension: dfm            # metadata files Qlik writes beside data files; never ingested
+  ops:
+    insert: I
+    update: U
+    delete: D
+    before_image: B
+  full_load_op: L               # synthetic op the framework assigns to full-load rows
+  change_seq_length: 35
+  # Header columns Qlik is configured to emit on change rows (Store Changes settings).
+  # Full-load rows get these as typed nulls so both flows share one bronze schema.
+  header_columns:
+    header__change_seq: string
+    header__change_oper: string
+    header__change_mask: string
+    header__stream_position: string
+    header__operation: string
+    header__transaction_id: string
+    header__timestamp: timestamp
+
+defaults:
+  scd_type: 1
+  silver: true
+  classification: phi           # healthcare payer data is PHI unless a contract says otherwise

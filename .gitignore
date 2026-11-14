@@ -1,0 +1,42 @@
+# Session memory (local only)
+MEMORY.md
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Databricks bundle state
+.databricks/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Local tool state
+.isaac/
+.claude/settings.local.json
+
+# Scaffold scratch output
+.scaffold/
+
+# Personal environment overrides (deep-merged over conf/environments/<env>.yml)
+conf/environments/*.local.yml
+
+# Generated deck (rebuild with `make deck`; source of truth is docs/deck/slides.json)
+docs/deck/*.pptx
+
+# Terraform (infra/)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
