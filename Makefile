@@ -35,6 +35,7 @@ export DATABRICKS_CONFIG_PROFILE := $(PROFILE)
 endif
 endif
 MIN_CLI := 1.24.0
+comma := ,
 
 # Bundle variables resolved from the environment config + workspace (warehouse id, deployer SP).
 BVARS = $$($(PY) -m ingestion_framework.prereqs bundle-vars --env $(TARGET))
@@ -63,7 +64,7 @@ help:
 	@echo "    make start|stop <env> PROFILE=<deployer>"
 	@echo "    make governance <env> PROFILE=<deployer>           registry + tags + undeclared audit now"
 	@echo "    make reload    <env> TABLE=<table> SINCE=<yyyyMMddHHmmss> PROFILE=<deployer>"
-	@echo "    make seed      sandbox BATCH=full_load|changes|reset PROFILE=<deployer>"
+	@echo "    make seed      sandbox BATCH=full_load|changes|reload|reset [TABLE=<t>] PROFILE=<deployer>"
 	@echo "    make verify    sandbox PROFILE=<deployer>          silver == expected synthetic state"
 	@echo "    make summary   <env> PROFILE=<deployer>"
 	@echo "    make destroy   <env> PROFILE=<deployer> CONFIRM=<env>   (refused for prod)"
@@ -213,7 +214,7 @@ infra-destroy: guard-infra
 BATCH ?= full_load
 seed: tools guard-profile
 	@if [ "$(TARGET)" != "sandbox" ]; then echo "error: seed is sandbox-only"; exit 2; fi
-	databricks bundle run -t $(TARGET) $(BVARS) job_seed --params batch=$(BATCH)
+	databricks bundle run -t $(TARGET) $(BVARS) job_seed --params batch=$(BATCH)$(if $(TABLE),$(comma)table=$(TABLE))
 
 verify: tools guard-profile
 	@if [ "$(TARGET)" != "sandbox" ]; then echo "error: verify is sandbox-only"; exit 2; fi

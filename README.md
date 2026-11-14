@@ -12,9 +12,9 @@ cloud storage. The same machinery is designed to take further sources, such as S
 
 | You declare | The framework generates and governs |
 |---|---|
-| a **table**: `<table>.yml` (a few lines) + `<table>.odcs.yaml` ([ODCS v3.2.0](https://bitol-io.github.io/open-data-contract-standard/) data contract) | bronze history table, silver table (AUTO CDC, SCD1/SCD2), contract expectations |
-| a **group** of tables (`_group.yml`) | one pipeline, its event log, failure notifications, cadence job, traceability tags |
-| an **environment** (`conf/environments/<env>.yml`) | catalogs/schemas, cadence (prod always-on, dev/tst weekly sample), DQM monitors, health alerts |
+| a **table**: a folder with `table.yml` (a few lines) + `contract.odcs.yaml` ([ODCS v3.2.0](https://bitol-io.github.io/open-data-contract-standard/) data contract) | bronze history table, silver table (AUTO CDC, SCD1/SCD2), contract expectations |
+| a **group** of tables (`group.yml`) | one pipeline, its event log, failure notifications, cadence job, traceability tags |
+| an **environment** (`conf/environments/<env>.yml`) | catalogs/schemas, cadence (prod always-on, dev/tst weekly sample), data quality monitors (DQM), health alerts |
 
 Everything in the bronze and silver schemas is declared here. Anything else that appears there is reported as an
 **undeclared object**.
@@ -25,7 +25,8 @@ Everything in the bronze and silver schemas is declared here. Anything else that
 
 - [How it works](#how-it-works)
 - [Prerequisites (required first step)](#prerequisites-required-first-step)
-- [Quick start (your own workspace)](#quick-start-your-own-workspace)
+- [Quick start (sandbox)](#quick-start-sandbox)
+- [Your own dev / tst / prod](#your-own-dev--tst--prod)
 - [Day-to-day](#day-to-day)
 - [Repository layout](#repository-layout)
 - [Documentation](#documentation)
@@ -52,9 +53,10 @@ Qlik Replicate ──► cloud storage (file events on)                     Unit
 - **Traceable in two hops.** Every table carries the tag `ingest_pipeline=<pipeline>`. Every pipeline carries
   `ingest_config` (its config folder), `ingest_code` (the code that builds it) and `ingest_git_commit`.
   `make trace` walks that path for you.
-- **Governed by default.** Bundle-declared data quality monitoring (anomaly detection on every source schema),
-  pipeline event logs, failure notifications, and four declared health alerts: expectation failures, pipeline
-  health, undeclared objects and tag drift.
+- **Governed by default.** The bundle declares:
+  - Unity Catalog data quality monitoring (DQM: freshness and volume anomaly detection on every source schema);
+  - pipeline event logs and failure notifications;
+  - four health alerts: expectation failures, pipeline health, undeclared objects and tag drift.
 
 See [docs/concepts/architecture.md](docs/concepts/architecture.md) for the full design.
 
@@ -82,49 +84,48 @@ make preflight <env> PROFILE=<deployer profile>          # verify everything, as
 
 Details and manual steps: [docs/operations/prerequisites.md](docs/operations/prerequisites.md).
 
-## Quick start (your own workspace)
+## Quick start (sandbox)
 
-The repo is self-contained: nothing outside it is assumed beyond the prerequisites above. The `sandbox`
-environment runs the whole framework end to end on **synthetic Qlik Replicate output**: the same folders, header
-columns and `.dfm` files, generated from the table contracts. No Qlik installation or real data is needed, and
-`infra/` builds a dedicated workspace and storage for it.
+The `sandbox` environment runs the whole framework end to end on **synthetic Qlik Replicate output**: the same
+folders, header columns and `.dfm` files, generated from the table contracts. No Qlik installation or real data
+is needed, and `infra/` builds a dedicated Azure workspace and storage for it.
 
 ```bash
-# 1. local tooling
-make install                    # uv venv + dev dependencies
-make check                      # lint (every table has a valid contract) + typecheck + tests
-
-# 2. a dedicated sandbox: workspace + ADLS landing + identity (Terraform; writes sandbox.local.yml)
-cp infra/azure-sandbox/terraform.tfvars.example infra/azure-sandbox/terraform.tfvars   # fill in
-make infra-sandbox
-
-# 3. prerequisites: apply as the workspace admin (your az login), verify as the deployer
-make prereqs   sandbox PROFILE=azure-cli
-make preflight sandbox PROFILE=<deployer profile>
-
-# 4. one command: preflight -> validate -> deploy -> governance -> start
-make deploy sandbox PROFILE=<deployer profile>
-
-# 5. feed it synthetic Qlik files and check silver against the expected state
-make seed   sandbox PROFILE=<deployer profile>                 # full load
-make seed   sandbox PROFILE=<deployer profile> BATCH=changes   # I/U/D + before images (repeat freely)
-make verify sandbox PROFILE=<deployer profile>                 # silver == expected, row for row
+make install && make check                                   # local: lint (every table has a contract), types, tests
+make infra-sandbox                                           # Terraform (after filling terraform.tfvars): workspace + ADLS landing
+make prereqs   sandbox PROFILE=azure-cli                     # as the workspace admin (your az login)
+make deploy    sandbox PROFILE=<deployer profile>            # preflight -> validate -> deploy -> governance -> start
+make seed      sandbox PROFILE=<deployer profile>            # synthetic Qlik full load (then BATCH=changes)
+make verify    sandbox PROFILE=<deployer profile>            # silver == expected state, row for row
 ```
 
-Walkthrough, including AWS and shared-workspace notes: [docs/guides/getting-started.md](docs/guides/getting-started.md).
-Infrastructure details: [infra/README.md](infra/README.md).
+The [getting-started guide](docs/guides/getting-started.md) covers each step. That includes what you need
+first, creating the deployer service principal and its CLI profile, and the other scenarios proven live: a Qlik
+table reload, tables with no files yet, an always-on group, and onboarding a table. Infrastructure details are in
+[infra/README.md](infra/README.md).
+
+## Your own dev / tst / prod
+
+These environments use workspaces and storage the platform team already owns, so nothing in `infra/` applies.
+
+1. Fill the `<...>` placeholders in `conf/environments/<env>.yml`, or in a gitignored `<env>.local.yml` next to it:
+   workspace host, deployer SP, landing path, warehouse.
+2. `make prereqs <env> PROFILE=<admin> DRY_RUN=1`, then without `DRY_RUN`, then do the manual steps it prints.
+   That includes attesting that non-prod data is masked (`governance.nonprod_data_attested`).
+3. `make deploy <env> PROFILE=<env deployer>`. Preflight refuses while any placeholder or required prerequisite is
+   missing, and tells you who owns the fix.
 
 ## Day-to-day
 
 ```bash
 # onboard tables: scaffold config + contract pairs from a data dictionary or Qlik .dfm files
-make scaffold SOURCE=facets GROUP=claims FROM=csv INPUT=exports/claims_dictionary.csv OWNER=claims-data
+make scaffold SOURCE=facets GROUP=claims FROM=csv INPUT=examples/scaffold/claims_dictionary.csv OWNER=claims-data
 
 # where does this table come from?  table -> pipeline -> config -> code
-make trace prod TABLE=cmc_clcl_claim PROFILE=<p>
+make trace <env> TABLE=cmc_clcl_claim PROFILE=<p>
 
 # after a Qlik table reload: rebuild that table's silver from bronze (bronze is never reset)
-make reload prod TABLE=cmc_clcl_claim SINCE=20261113100000 PROFILE=<p>
+make reload <env> TABLE=cmc_clcl_claim SINCE=20261113100000 PROFILE=<p>
 ```
 
 | Command | What it does |
@@ -141,7 +142,11 @@ make reload prod TABLE=cmc_clcl_claim SINCE=20261113100000 PROFILE=<p>
 conf/                    framework defaults, one file per environment, declared prerequisites
 sources/<source>/        what is ingested
   source.yml             source type (adapter) + conventions, e.g. Qlik header columns
-  groups/<group>/        one pipeline: _group.yml + <table>.yml / <table>.odcs.yaml pairs
+  groups/<group>/
+    group.yml            one group = one pipeline (and one Qlik task / landing folder)
+    tables/<table>/
+      table.yml          ops config: usually just `table:` and `enabled:`
+      contract.odcs.yaml the data contract: columns, keys, quality rules, SLA, owner
 src/ingestion_framework/ the framework (config, contracts, adapters, bundle generation, governance, prereqs)
 src/pipelines/           the one generic SDP entrypoint
 src/jobs/                governance job, sandbox seed job
@@ -157,7 +162,7 @@ docs/                    concepts, guides, operations, deck
 
 | | |
 |---|---|
-| **Concepts** | [Architecture](docs/concepts/architecture.md) · [Data contracts](docs/concepts/data-contracts.md) · [Traceability & tags](docs/concepts/traceability-and-tags.md) |
+| **Concepts** | [Architecture](docs/concepts/architecture.md) · [Data contracts](docs/concepts/data-contracts.md) · [Data quality: expectations, DQM, DQX](docs/concepts/data-quality.md) · [Traceability & tags](docs/concepts/traceability-and-tags.md) |
 | **Guides** | [Getting started (sandbox)](docs/guides/getting-started.md) · [Onboarding tables](docs/guides/onboarding-tables.md) · [Adding a source (Lakeflow Connect)](docs/guides/adding-a-source.md) |
 | **Operations** | [Prerequisites](docs/operations/prerequisites.md) · [Environments & cadence](docs/operations/environments-and-cadence.md) · [Observability & alerts](docs/operations/observability-and-alerts.md) · [Runbook](docs/operations/runbook.md) · [Silver migration & cutover](docs/operations/migration-cutover.md) · [CI example](docs/operations/ci-example.md) |
 | **Deck** | [Overview slides source](docs/deck/slides.json) · `make deck` renders `docs/deck/ingestion-framework-overview.pptx` |

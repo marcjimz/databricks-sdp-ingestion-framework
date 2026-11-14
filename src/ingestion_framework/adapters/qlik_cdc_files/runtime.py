@@ -57,7 +57,7 @@ def _define_bronze(
     full_path = b.full_load_path(landing, group.landing_folder, t.table)
     full_schema = b.reader_schema_ddl(columns, qlik, include_headers=False)
     full_select = b.bronze_select_full_load(columns, qlik)
-    full_opts = b.reader_options(qlik)
+    full_opts = b.reader_options(qlik, allow_overwrites=True)  # a reload may reuse LOAD00000001
 
     @dp.append_flow(target=target, name=f"{t.name}__full_load")
     def full_load() -> Any:
@@ -81,7 +81,8 @@ def _define_silver(dp: Any, spark: Any, cfg: ResolvedConfig, t: TableConfig, bro
     qlik = cfg.source(t.source).settings["qlik"]
     target = cfg.table_fqn("silver", t.source, t.name)
     view_name = f"{t.name}__silver_source"
-    where = b.silver_source_filter(qlik, reload_cutoff=opts.reload_cutoffs.get(target))
+    cutoff = opts.reload_cutoffs.get(target)
+    where = b.silver_source_filter(qlik, reload_cutoff=cutoff)
     projection = b.silver_projection(t.contract.columns, qlik)
     warn = {e.name: e.condition for e in t.contract.expectations if e.action == "warn"}
     fail = {e.name: e.condition for e in t.contract.expectations if e.action == "fail"}
@@ -93,10 +94,13 @@ def _define_silver(dp: Any, spark: Any, cfg: ResolvedConfig, t: TableConfig, bro
         return spark.readStream.table(bronze).where(where).selectExpr(*projection)
 
     silver_layer = cfg.framework.layer("silver")
+    props = _table_properties(cfg, t, "silver")
+    if cutoff:  # which reload this table was rebuilt from: SHOW TBLPROPERTIES answers it
+        props["ingest.reload_cutoff"] = cutoff
     dp.create_streaming_table(
         name=target,
         comment=_comment(t, "silver"),
-        table_properties=_table_properties(cfg, t, "silver"),
+        table_properties=props,
         cluster_by_auto=bool(silver_layer.get("cluster_by_auto", False)),
     )
 

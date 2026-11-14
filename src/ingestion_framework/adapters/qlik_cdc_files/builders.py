@@ -103,9 +103,12 @@ def reader_schema_ddl(columns: Sequence[Column], qlik: Mapping[str, Any], *, inc
 def reader_options(
     qlik: Mapping[str, Any],
     *,
+    allow_overwrites: bool = False,
     lookback_days: int | None = None,
     now: datetime | None = None,
 ) -> dict[str, str]:
+    """Auto Loader options. ``allow_overwrites`` is for the full-load folder only: a Qlik table reload may
+    rewrite ``LOAD00000001`` under the same name, and Auto Loader would otherwise skip that path as seen."""
     fmt = str(qlik.get("file_format", "parquet"))
     opts = {
         "cloudFiles.format": fmt,
@@ -117,6 +120,8 @@ def reader_options(
     }
     if fmt == "csv":
         opts["header"] = "true"
+    if allow_overwrites:
+        opts["cloudFiles.allowOverwrites"] = "true"
     opts.update({str(k): str(v) for k, v in (qlik.get("reader_options") or {}).items()})
     if lookback_days:
         cutoff = (now or datetime.now(UTC)) - timedelta(days=lookback_days)

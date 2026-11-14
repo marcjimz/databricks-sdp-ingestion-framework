@@ -238,10 +238,10 @@ def _seed_job(cfg: ResolvedConfig) -> dict[str, Any]:
         cfg,
         name=f"ingest-seed-{cfg.env.name}",
         script="src/jobs/seed.py",
-        args=["--batch", "{{job.parameters.batch}}"],
+        args=["--batch", "{{job.parameters.batch}}", "--table", "{{job.parameters.table}}"],
         description="SANDBOX ONLY: writes synthetic Qlik Replicate files to the landing zone.",
     )
-    job["parameters"] = [{"name": "batch", "default": "full_load"}]
+    job["parameters"] = [{"name": "batch", "default": "full_load"}, {"name": "table", "default": ""}]
     return job
 
 

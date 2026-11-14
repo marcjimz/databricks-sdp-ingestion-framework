@@ -15,6 +15,10 @@ Unhealthy tables notify `dqm.notify` (emails / destination ids) natively. This n
 `engine: direct`. An optional extra SQL alert over `system.data_quality_monitoring.table_results` is enabled with
 `alerts.dqm_system_table_alert: true`; it needs an account-admin grant.
 
+New tables report `Training` (`RECENTLY_CREATED`) until DQM has learned their commit history. That is expected
+for the first days after onboarding. How DQM, contract expectations and DQX fit together:
+[Data quality](../concepts/data-quality.md).
+
 ## In-pipeline data quality
 
 Contract rules become SDP expectations on the silver source view:

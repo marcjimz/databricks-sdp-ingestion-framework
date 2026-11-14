@@ -10,7 +10,8 @@ def main() -> None:
     ap.add_argument("--root", required=True)
     ap.add_argument("--env", required=True)
     ap.add_argument("--config-fingerprint", default="")
-    ap.add_argument("--batch", required=True, choices=["full_load", "changes", "verify", "reset"])
+    ap.add_argument("--batch", required=True, choices=["full_load", "changes", "reload", "verify", "reset"])
+    ap.add_argument("--table", default="", help="limit the batch to one table (required for reload)")
     args = ap.parse_args()
     sys.path.insert(0, f"{args.root}/src")
 
@@ -23,7 +24,7 @@ def main() -> None:
     spark = SparkSession.builder.getOrCreate()
     cfg = load_config(args.root, args.env)
     assert_fingerprint(cfg, args.config_fingerprint)
-    print(json.dumps(run(spark, cfg, args.batch), indent=2, default=str))
+    print(json.dumps(run(spark, cfg, args.batch, table=args.table), indent=2, default=str))
 
 
 if __name__ == "__main__":

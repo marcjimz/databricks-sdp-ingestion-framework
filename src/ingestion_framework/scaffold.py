@@ -25,6 +25,7 @@ from typing import Any
 
 import yaml
 
+from ingestion_framework.config import layout
 from ingestion_framework.contracts.validate import ODCS_VERSION
 
 
@@ -219,9 +220,12 @@ def contract_for(
 
 
 def _group_dir(root: Path, source: str, group: str) -> Path:
-    gdir = root / "sources" / source / "groups" / group
-    if not (gdir / "_group.yml").exists():
-        raise ScaffoldError(f"group '{group}' does not exist under sources/{source}/groups (create _group.yml first)")
+    gdir = layout.group_dir(root, source, group)
+    if not (gdir / layout.GROUP_FILE).exists():
+        raise ScaffoldError(
+            f"group '{group}' does not exist under sources/{source}/{layout.GROUPS_DIR} "
+            f"(create {layout.GROUP_FILE} first)"
+        )
     return gdir
 
 
@@ -235,18 +239,20 @@ def _write_pairs(
     status: str,
 ) -> ScaffoldResult:
     gdir = _group_dir(root, source, group)
-    group_doc = yaml.safe_load((gdir / "_group.yml").read_text()) or {}
-    source_doc = yaml.safe_load((root / "sources" / source / "source.yml").read_text()) or {}
+    group_doc = yaml.safe_load((gdir / layout.GROUP_FILE).read_text()) or {}
+    source_doc = yaml.safe_load((root / "sources" / source / layout.SOURCE_FILE).read_text()) or {}
     classification = str((source_doc.get("defaults") or {}).get("classification", "internal"))
     result = ScaffoldResult()
     for table, columns in sorted(tables.items()):
         stem = table.lower()
-        cfg_path, contract_path = gdir / f"{stem}.yml", gdir / f"{stem}.odcs.yaml"
+        tdir = layout.table_dir(gdir, stem)
+        cfg_path, contract_path = tdir / layout.TABLE_FILE, tdir / layout.CONTRACT_FILE
         if cfg_path.exists() or contract_path.exists():
             result.skipped.append(stem)
             continue
         if not columns:
             raise ScaffoldError(f"{table}: no columns")
+        tdir.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(yaml.safe_dump({"table": table, "enabled": True}, sort_keys=False))
         doc = contract_for(
             source,

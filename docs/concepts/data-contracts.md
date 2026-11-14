@@ -1,6 +1,6 @@
 # Data contracts (ODCS v3.2.0)
 
-Every table has exactly one contract, `<table>.odcs.yaml`, next to its `<table>.yml`. The standard is the
+Every table has exactly one contract, `tables/<table>/contract.odcs.yaml`, next to its `table.yml`. The standard is the
 [Open Data Contract Standard](https://bitol-io.github.io/open-data-contract-standard/) **v3.2.0** (Bitol / LF AI &
 Data). The JSON schema is vendored at `contracts/odcs-json-schema-v3.2.0.json`, so lint runs offline.
 
@@ -23,8 +23,8 @@ Lint (`make lint`, pre-commit, tests) rejects a contract unless all of these hol
 
 - it validates against the ODCS v3.2.0 JSON schema, with `apiVersion: v3.2.0`;
 - it has `status`, `team` (owner), `slaProperties` and `customProperties.dataClassification`;
-- it has exactly one schema object, whose `physicalName` equals `table` in `<table>.yml`;
-- CDC tables declare a primary key, or set `append_only: true` in `<table>.yml`;
+- it has exactly one schema object, whose `physicalName` equals `table` in `table.yml`;
+- CDC tables declare a primary key, or set `append_only: true` in `table.yml`;
 - every quality rule is enforceable. `type: text` is documentation. `library`/`sql` rules and other engines are
   errors until supported, so nothing *looks* enforced without being enforced;
 - no `drop` actions.

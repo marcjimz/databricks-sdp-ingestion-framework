@@ -6,6 +6,7 @@ import pytest
 
 from ingestion_framework.config import ConfigError, load_config
 from ingestion_framework.ops import reload, start
+from ingestion_framework.prereqs.cli import CliError
 
 SUMMARY = {
     "resources": {
@@ -41,6 +42,20 @@ def _cfg(mini_repo):
         env_overrides={"cadence": {"default": "continuous", "overrides": {"testsrc/g2": "on_arrival"}}},
     )
     return load_config(root, "prod")
+
+
+class BusyCli(RecordingCli):
+    """A deploy that switches a pipeline to continuous starts it, so it is already running."""
+
+    def run(self, *args: str) -> None:
+        super().run(*args)
+        if args[:2] == ("pipelines", "start-update"):
+            raise CliError("Error: An active update 'u1' already exists for pipeline 'p1'.")
+
+
+def test_start_is_idempotent_for_a_continuous_pipeline_that_is_already_running(mini_repo):
+    lines = start(_cfg(mini_repo), BusyCli(), SUMMARY)
+    assert any("already running" in line for line in lines)
 
 
 def test_start_runs_continuous_pipelines_and_drains_triggered_groups(mini_repo):

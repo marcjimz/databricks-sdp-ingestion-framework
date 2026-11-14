@@ -134,15 +134,16 @@ def mini_repo(tmp_path: Path) -> Callable[..., Path]:
         for group, tables in (groups or {"g1": ["TBL_A", "TBL_B"]}).items():
             gdir = src_dir / "groups" / group
             _write(
-                gdir / "_group.yml",
+                gdir / "group.yml",
                 {"group": group, "description": f"{group} desc", "domain": group, "landing_folder": group},
             )
             for table in tables:
                 tdoc: dict[str, Any] = {"table": table, "enabled": True}
                 tdoc.update((table_overrides or {}).get(table, {}))
-                _write(gdir / f"{table.lower()}.yml", tdoc)
+                tdir = gdir / "tables" / table.lower()
+                _write(tdir / "table.yml", tdoc)
                 _write(
-                    gdir / f"{table.lower()}.odcs.yaml",
+                    tdir / "contract.odcs.yaml",
                     contract_doc(table, columns or DEFAULT_COLUMNS, quality=quality),
                 )
         return root

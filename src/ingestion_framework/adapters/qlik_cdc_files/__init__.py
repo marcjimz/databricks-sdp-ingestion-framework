@@ -39,6 +39,8 @@ class QlikCdcFilesAdapter(SourceAdapter):
                 "framework.source": group.source,
                 "framework.group": group.group,
                 "framework.ct_lookback_days": str(lookback or ""),
+                # Reload cutoffs and Qlik change sequences are UTC; date_format() follows the session zone.
+                "spark.sql.session.timeZone": "UTC",
             },
         }
         if cfg.env.pipelines.get("serverless", True):

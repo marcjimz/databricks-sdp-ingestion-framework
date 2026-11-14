@@ -19,8 +19,8 @@
 | Environment | `conf/environments/<env>.yml` (+ gitignored `<env>.local.yml`) | catalogs, landing roots, cadence, scope, recipients, protections |
 | Prerequisites | `conf/prerequisites.yml` | the preflight gate in front of every deploy |
 | Source | `sources/<source>/source.yml` | an adapter (`type`) + source conventions |
-| Group | `sources/<source>/groups/<group>/_group.yml` | **one pipeline** + its cadence job, event log, tags |
-| Table | `<table>.yml` + `<table>.odcs.yaml` | bronze + silver tables, expectations, registry row, tags |
+| Group | `sources/<source>/groups/<group>/group.yml` | **one pipeline** + its cadence job, event log, tags |
+| Table | `<group>/tables/<table>/table.yml` + `contract.odcs.yaml` | bronze + silver tables, expectations, registry row, tags |
 
 Resource generation is pure Python ([`bundle/generate.py`](../../src/ingestion_framework/bundle/generate.py)),
 so the whole deployment is unit-tested. [`resources/__init__.py`](../../resources/__init__.py) hands the result
@@ -82,6 +82,14 @@ So the initial snapshot plus Qlik's cached changes apply correctly, and replays 
 **Reload**: `make reload` records a cutoff and full-refreshes **only silver**. The silver view then ignores
 snapshots and changes older than the reload. Bronze, the system of record, is never reset, and prod blocks
 bronze resets with `pipelines.reset.allowed=false`.
+
+- **Same-name snapshots.** The full-load flow sets `cloudFiles.allowOverwrites`, so a snapshot rewritten under the
+  same name is read again.
+- **Visible cutoff.** The silver table records the cutoff it was built from in the property
+  `ingest.reload_cutoff`.
+- **Loud failure.** If the cutoff table exists but cannot be read, the update fails rather than building silver
+  without it.
+- **UTC.** Pipelines run in UTC, so cutoffs compare with file times and Qlik sequences in one time zone.
 
 ## Scaling to thousands of tables
 

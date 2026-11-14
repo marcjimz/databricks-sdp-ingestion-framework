@@ -1,8 +1,10 @@
 """SANDBOX ONLY: write synthetic Qlik Replicate files to the landing zone and verify silver.
 
-Batches (job parameter ``batch``):
+Batches (job parameter ``batch``; ``table`` limits any batch to one table):
   full_load  one LOAD file per table in <TABLE>/ (+ .dfm), expected state reset to it
   changes    one change file per table in <TABLE>__ct/ with I/U/B/D rows (+ .dfm)
+  reload     a Qlik table reload (needs ``table``): changes Qlik never delivered are only in a new snapshot,
+             rewritten as LOAD00000001 (same name: the worst case). Prints the SINCE for ``make reload``
   verify     compare every silver table with the expected state; fail on any difference
   reset      delete the synthetic landing files and expected-state tables
 
@@ -24,6 +26,7 @@ from ingestion_framework.synthetic.qlik import ChangeMix, apply_changes, generat
 
 ROWS_PER_TABLE = 200
 MIX = ChangeMix(inserts=10, updates=15, deletes=5)
+LOST = ChangeMix(inserts=5, updates=5, deletes=5)  # what a reload must repair: never sent as change files
 VIOLATION_RATE = 0.02  # a few rows outside contract `examples`, so warn-expectation metrics are visible
 
 
@@ -38,11 +41,13 @@ def _dbutils(spark: Any) -> Any:
         return DBUtils(spark)
 
 
-def _tables(cfg: ResolvedConfig) -> list[tuple[str, TableConfig]]:
+def _tables(cfg: ResolvedConfig, only: str = "") -> list[tuple[str, TableConfig]]:
     out: list[tuple[str, TableConfig]] = []
     for g in cfg.groups_in_scope():
         if cfg.source(g.source).type == "qlik_cdc_files":
-            out.extend((g.landing_folder, t) for t in g.tables)
+            out.extend((g.landing_folder, t) for t in g.tables if not only or only.lower() in {t.name, t.table.lower()})
+    if only and not out:
+        raise ValueError(f"table '{only}' is not an in-scope table of this environment")
     return out
 
 
@@ -91,7 +96,9 @@ def _write_file(
     staging = f"{landing}/_seed_staging/{uuid.uuid4().hex}"
     spark.createDataFrame(rows, schema=ddl).coalesce(1).write.mode("overwrite").parquet(staging)
     part = next(f.path for f in dbutils.fs.ls(staging) if f.name.endswith(".parquet"))
-    dbutils.fs.mv(part, f"{folder}/{name}.parquet")
+    target = f"{folder}/{name}.parquet"
+    dbutils.fs.rm(target)  # a rewrite replaces the file, as Qlik's drop-and-create does (no-op when absent)
+    dbutils.fs.mv(part, target)
     dbutils.fs.put(f"{folder}/{name}.dfm", dfm, overwrite=True)
     dbutils.fs.rm(staging, recurse=True)
 
@@ -107,13 +114,15 @@ def _load_expected(spark: Any, cfg: ResolvedConfig, t: TableConfig) -> dict[Any,
     return {tuple(r[k] for k in keys): r.asDict() for r in spark.table(_expected_table(cfg, t)).collect()}
 
 
-def run(spark: Any, cfg: ResolvedConfig, batch: str, *, seed: int | None = None) -> dict[str, Any]:
+def run(spark: Any, cfg: ResolvedConfig, batch: str, *, table: str = "", seed: int | None = None) -> dict[str, Any]:
     if not cfg.env.seed_enabled:
         raise RuntimeError(f"seed is disabled for env '{cfg.env.name}' (sandbox only)")
+    if batch == "reload" and not table:
+        raise ValueError("batch 'reload' needs a table (a Qlik reload is per table)")
     now = datetime.now(UTC)
     rng = random.Random(seed if seed is not None else int(now.timestamp()))
     summary: dict[str, Any] = {"batch": batch, "tables": {}}
-    for folder, t in _tables(cfg):
+    for folder, t in _tables(cfg, table):
         qlik = dict(cfg.source(t.source).settings["qlik"])
         landing = cfg.landing_root(t.source)
         cols = t.contract.columns
@@ -147,6 +156,27 @@ def run(spark: Any, cfg: ResolvedConfig, batch: str, *, seed: int | None = None)
             )
             _save_expected(spark, cfg, t, state)
             summary["tables"][t.name] = {"change_rows": len(rows), "expected_rows": len(state)}
+        elif batch == "reload":
+            state = _load_expected(spark, cfg, t)
+            since = now.strftime("%Y%m%d%H%M%S")  # the reload start: the new snapshot is written after it
+            generate_changes(cols, t.contract.keys, state, LOST, now, rng, violation_rate=VIOLATION_RATE)
+            rows = list(state.values())
+            target = b.full_load_path(landing, folder, t.table)
+            _write_file(
+                spark,
+                landing,
+                rows,
+                b.reader_schema_ddl(cols, qlik, include_headers=False),
+                target,
+                "LOAD00000001",
+                _dfm(t, "LOAD00000001", target, len(rows), qlik, ct=False),
+            )
+            _save_expected(spark, cfg, t, state)
+            summary["tables"][t.name] = {
+                "snapshot_rows": len(rows),
+                "lost_changes_repaired_by_snapshot": f"{LOST.inserts} I / {LOST.updates} U / {LOST.deletes} D",
+                "next": f"make reload {cfg.env.name} TABLE={t.name} SINCE={since} PROFILE=<p>",
+            }
         elif batch == "verify":
             summary["tables"][t.name] = _verify(spark, cfg, t)
         elif batch == "reset":
@@ -155,7 +185,7 @@ def run(spark: Any, cfg: ResolvedConfig, batch: str, *, seed: int | None = None)
             spark.sql(f"DROP TABLE IF EXISTS {_expected_table(cfg, t)}")
             summary["tables"][t.name] = "reset"
         else:
-            raise ValueError(f"unknown batch '{batch}' (full_load | changes | verify | reset)")
+            raise ValueError(f"unknown batch '{batch}' (full_load | changes | reload | verify | reset)")
     if batch == "verify":
         bad = {k: v for k, v in summary["tables"].items() if v["missing"] or v["unexpected"]}
         summary["ok"] = not bad

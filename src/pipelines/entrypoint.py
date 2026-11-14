@@ -33,30 +33,18 @@ from ingestion_framework.adapters import RuntimeOptions, get_adapter  # noqa: E4
 from ingestion_framework.config import load_config  # noqa: E402
 from ingestion_framework.config.fingerprint import assert_fingerprint  # noqa: E402
 from ingestion_framework.governance.job import RELOAD_CUTOFFS  # noqa: E402
+from ingestion_framework.governance.reload import read_reload_cutoffs  # noqa: E402
 
 cfg = load_config(ROOT, _conf("framework.env"))
 assert_fingerprint(cfg, _conf("framework.config_fingerprint"))  # same config as deploy time, or stop
 source, group_name = _conf("framework.source"), _conf("framework.group")
 group = cfg.group(source, group_name)
 
-
-def _reload_cutoffs() -> dict[str, str]:
-    """Qlik reload cutoffs recorded by `make reload` (read once, when the graph is built)."""
-    table = f"{cfg.ops_schema_fqn}.{RELOAD_CUTOFFS}"
-    try:
-        if not spark.catalog.tableExists(table):
-            return {}
-        rows = spark.table(table).select("table_fqn", "min_change_seq").collect()
-        return {r["table_fqn"]: r["min_change_seq"] for r in rows}
-    except Exception as exc:  # never block ingestion on the optional cutoff table
-        print(f"[ingestion_framework] reload cutoffs unavailable ({exc}); continuing without", file=sys.stderr)
-        return {}
-
-
 lookback = _conf("framework.ct_lookback_days")
 options = RuntimeOptions(
     ct_lookback_days=int(lookback) if lookback else None,
     now=datetime.now(UTC),
-    reload_cutoffs=_reload_cutoffs(),
+    # Read once, when the graph is built. Fails the update rather than silently dropping a cutoff.
+    reload_cutoffs=read_reload_cutoffs(spark, f"{cfg.ops_schema_fqn}.{RELOAD_CUTOFFS}"),
 )
 get_adapter(cfg.source(source).type).define(dp, spark, cfg, group, options)

@@ -51,13 +51,13 @@ def test_csv_scaffold_writes_table_config_and_valid_contract_pairs(repo, tmp_pat
     result = scaffold_from_csv(repo, source="testsrc", group="g1", path=src, owner="claims-data", status="active")
 
     assert sorted(result.created) == ["cmc_cdml_cl_line", "cmc_clcl_claim"]
-    gdir = repo / "sources" / "testsrc" / "groups" / "g1"
-    assert yaml.safe_load((gdir / "cmc_clcl_claim.yml").read_text()) == {
+    tables = repo / "sources" / "testsrc" / "groups" / "g1" / "tables"
+    assert yaml.safe_load((tables / "cmc_clcl_claim" / "table.yml").read_text()) == {
         "table": "CMC_CLCL_CLAIM",
         "enabled": True,
     }
 
-    doc = yaml.safe_load((gdir / "cmc_cdml_cl_line.odcs.yaml").read_text())
+    doc = yaml.safe_load((tables / "cmc_cdml_cl_line" / "contract.odcs.yaml").read_text())
     assert schema_problems(doc) == [] and profile_problems(doc) == []
     props = {p["name"]: p for p in doc["schema"][0]["properties"]}
     assert props["CDML_SEQ_NO"]["primaryKeyPosition"] == 2
@@ -84,7 +84,7 @@ def test_dfm_scaffold_maps_qlik_types_and_keys(repo, tmp_path):
     result = scaffold_from_dfm(repo, source="testsrc", group="g1", paths=[dfm])
 
     assert result.created == ["cmc_prpr_prov"]
-    doc = yaml.safe_load((repo / "sources/testsrc/groups/g1/cmc_prpr_prov.odcs.yaml").read_text())
+    doc = yaml.safe_load((repo / "sources/testsrc/groups/g1/tables/cmc_prpr_prov/contract.odcs.yaml").read_text())
     props = {p["name"]: p for p in doc["schema"][0]["properties"]}
     assert props["PRPR_ID"]["primaryKey"] is True
     assert props["PRPR_RATE"]["physicalType"] == "decimal(9,4)"

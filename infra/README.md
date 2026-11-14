@@ -21,7 +21,9 @@ them with the CLI and checks each one before creating it.
 
 > **One tenant.** The subscription, the Databricks account and the metastore must be in the same Entra tenant:
 > Unity Catalog only accepts an access connector from the workspace's tenant. You need rights to create resource
-> groups **and role assignments** (Owner or User Access Administrator).
+> groups **and role assignments** (Owner or User Access Administrator), Databricks **account admin** (to attach
+> the workspace to the metastore), and `CREATE STORAGE CREDENTIAL / EXTERNAL LOCATION / CATALOG` on the metastore.
+> Where each id in `terraform.tfvars` comes from: [getting started, step 0](../docs/guides/getting-started.md#0-what-you-need).
 
 ```bash
 az login --tenant <tenant id>
@@ -49,12 +51,18 @@ is needed to register it as a storage credential.
 
 ```bash
 make destroy sandbox PROFILE=<deployer> CONFIRM=sandbox                          # bundle resources
-databricks catalogs delete sdpif_bronze_sbx --force                              # UC objects from make prereqs
+
+# UC objects from make prereqs, as the workspace admin (your az login)
+export DATABRICKS_AUTH_TYPE=azure-cli DATABRICKS_HOST=<workspace_host>
+databricks catalogs delete sdpif_bronze_sbx --force
 databricks catalogs delete sdpif_silver_sbx --force
 databricks external-locations delete sdpif-sbx-landing --force
 databricks external-locations delete sdpif-sbx-catalogs --force
 databricks storage-credentials delete sdpif-sbx-credential --force
+
 make infra-destroy CONFIRM=infra                                                 # workspace, storage, identity
 ```
+
+Use your own names if you overrode them in `sandbox.local.yml`.
 
 Terraform state is local and gitignored. For a shared sandbox, move it to a remote backend.

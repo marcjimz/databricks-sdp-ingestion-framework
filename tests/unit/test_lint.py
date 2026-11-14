@@ -15,18 +15,33 @@ def test_clean_repo_has_no_errors(mini_repo):
 
 def test_table_without_contract_and_orphan_contract_are_errors(mini_repo):
     root = mini_repo(groups={"g1": ["TBL_A", "TBL_B"]})
-    gdir = root / "sources/testsrc/groups/g1"
-    (gdir / "tbl_a.odcs.yaml").unlink()
-    (gdir / "tbl_b.yml").unlink()
+    tables = root / "sources/testsrc/groups/g1/tables"
+    (tables / "tbl_a/contract.odcs.yaml").unlink()
+    (tables / "tbl_b/table.yml").unlink()
     msgs = " ".join(_messages(root))
 
-    assert "tbl_a.yml" in msgs and "no data contract" in msgs
-    assert "tbl_b.odcs.yaml" in msgs and "orphan contract" in msgs
+    assert "tables/tbl_a/table.yml" in msgs and "no data contract" in msgs
+    assert "tables/tbl_b/contract.odcs.yaml" in msgs and "orphan contract" in msgs
+
+
+def test_layout_rules_one_folder_per_table(mini_repo):
+    root = mini_repo(groups={"g1": ["TBL_A"]})
+    gdir = root / "sources/testsrc/groups/g1"
+    (gdir / "stray.yml").write_text("table: STRAY\n")  # old flat layout: tables belong in tables/<table>/
+    (gdir / "tables/tbl_a/notes.txt").write_text("x")
+    (gdir / "tables/tbl_a").rename(gdir / "tables/wrong_name")
+    (root / "sources/testsrc/groups/g2").mkdir()  # a group folder without group.yml
+    msgs = " ".join(_messages(root))
+
+    assert "g1/stray.yml" in msgs and "tables/<table>/" in msgs
+    assert "tables/wrong_name/notes.txt" in msgs and "unexpected file" in msgs
+    assert "tables/wrong_name" in msgs and "folder should be named 'tbl_a'" in msgs
+    assert "groups/g2" in msgs and "no group.yml" in msgs
 
 
 def test_invalid_odcs_and_house_profile_are_errors(mini_repo):
     root = mini_repo()
-    path = root / "sources/testsrc/groups/g1/tbl_a.odcs.yaml"
+    path = root / "sources/testsrc/groups/g1/tables/tbl_a/contract.odcs.yaml"
     doc = yaml.safe_load(path.read_text())
     doc["kind"] = "Nope"
     doc.pop("slaProperties")
@@ -64,7 +79,7 @@ def test_drop_actions_and_unsupported_rules_are_errors(mini_repo):
 
 def test_physical_name_must_match_table_config(mini_repo):
     root = mini_repo()
-    path = root / "sources/testsrc/groups/g1/tbl_a.odcs.yaml"
+    path = root / "sources/testsrc/groups/g1/tables/tbl_a/contract.odcs.yaml"
     path.write_text(path.read_text().replace("physicalName: TBL_A", "physicalName: SOMETHING_ELSE"))
     assert any("physicalName" in m for m in _messages(root))
 

@@ -40,6 +40,27 @@ This does two things:
 
 Bronze keeps the complete history and is never reset, so this works in prod too.
 
+Qlik may write the new snapshot under the same name as the old one (`LOAD00000001`). The full-load flow sets
+`cloudFiles.allowOverwrites`, so a rewritten file is ingested again; its newer file time puts it after the cutoff.
+Wait for the reload's own pipeline update to finish before running `make reload`, because a pipeline accepts one
+update at a time.
+
+## Changing Auto Loader options on a running stream
+
+Some Auto Loader options change what the managed file-events cache sends a stream; `allowOverwrites` is one.
+Changing such an option on a stream that already exists makes it fail with
+`CF_MANAGED_FILE_EVENTS_INVALID_CONTINUATION_TOKEN` (`include_updates and include_deletes cannot change between
+requests`). This was seen live when the full-load flows gained `allowOverwrites`. To recover:
+
+- **sandbox / dev:** full-refresh the pipeline (`databricks pipelines start-update <id> --full-refresh`). Bronze is
+  rebuilt from the landing files.
+- **prod**, where bronze is the system of record: reset only that flow's checkpoint, then treat it as a reload,
+  because the flow reads its folder again:
+  `databricks pipelines start-update <id> --json '{"reset_checkpoint_selection": ["<catalog>.<schema>.<table>__full_load"]}'`.
+  Not yet tested live.
+
+Avoid the problem by setting reader options when a table is first onboarded.
+
 ## A source column was added
 
 It appears in bronze `_rescued_data`. To promote it:
@@ -50,9 +71,12 @@ It appears in bronze `_rescued_data`. To promote it:
 
 ## A pipeline failed
 
-1. Check the notification email, or the pipeline UI from `make trace <env> TABLE=<t>`.
-2. A `fail` expectation stops an update by design. The event log names the expectation and the contract.
-3. If the problem is source data, fix it upstream. If the contract is wrong, fix the contract and redeploy.
+1. Open the pipeline UI from `make trace <env> TABLE=<t>`, or check the notification if the environment has
+   recipients. The errors are also in the event log, `ingest_ops.event_log_<source>_<group>`.
+2. Triggered groups: the cadence job retries a failed update. Cancel it with `databricks jobs cancel-all-runs
+   --job-id <id>` before starting a manual fix, or the retry holds the pipeline (one update at a time).
+3. A `fail` expectation stops an update by design. The event log names the expectation and the contract.
+4. If the problem is source data, fix it upstream. If the contract is wrong, fix the contract and redeploy.
 
 ## An "undeclared objects" alert fired
 

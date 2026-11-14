@@ -15,6 +15,8 @@ def test_one_pipeline_per_group_with_stable_keys_and_names(mini_repo):
     p = spec["pipelines"]["pipeline_testsrc_g1"]
     assert p["name"] == "ingest-testsrc-g1-sandbox"
     assert p["configuration"]["framework.group"] == "g1"
+    # reload cutoffs and Qlik sequences are UTC; date_format() follows the session time zone
+    assert p["configuration"]["spark.sql.session.timeZone"] == "UTC"
     assert p["libraries"] == [{"file": {"path": "${workspace.file_path}/src/pipelines/entrypoint.py"}}]
     assert p["event_log"] == {
         "catalog": "bronze_sandbox",
@@ -131,6 +133,10 @@ def test_governance_job_always_present_and_seed_only_when_enabled(mini_repo):
     assert "job_seed" not in spec["jobs"]
     seeded = _spec(mini_repo, env_overrides={"seed": {"enabled": True}})
     assert "job_seed" in seeded["jobs"]
+    seed = seeded["jobs"]["job_seed"]
+    assert [p["name"] for p in seed["parameters"]] == ["batch", "table"]
+    params = seed["tasks"][0]["spark_python_task"]["parameters"]
+    assert params[params.index("--table") + 1] == "{{job.parameters.table}}"
 
 
 def test_permissions_from_governance_groups(mini_repo):

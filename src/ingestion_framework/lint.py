@@ -3,7 +3,8 @@
 Run by ``make lint``, pre-commit and the test suite. Exit code 1 when any error is found.
 
 Rules
-  * every ``<table>.yml`` has a ``<table>.odcs.yaml`` data contract, and no contract is orphaned
+  * layout: ``groups/<group>/group.yml`` + ``tables/<table>/{table.yml, contract.odcs.yaml}``, nothing else
+  * every ``table.yml`` has a ``contract.odcs.yaml`` data contract, and no contract is orphaned
   * contracts validate against ODCS v3.2.0 and the house profile (status, team, SLA, classification)
   * contract ``physicalName`` matches the table config; one schema object per contract
   * CDC tables declare a primary key (or are explicitly ``append_only``)
@@ -26,8 +27,7 @@ from typing import Any
 
 from ingestion_framework.adapters import get_adapter, known_types
 from ingestion_framework.adapters.qlik_cdc_files.builders import spark_type
-from ingestion_framework.config import ConfigError, available_envs, load_config, read_yaml
-from ingestion_framework.config.loader import CONTRACT_SUFFIX, GROUP_FILE
+from ingestion_framework.config import ConfigError, available_envs, layout, load_config, read_yaml
 from ingestion_framework.contracts import unsupported_rules
 from ingestion_framework.contracts.validate import profile_problems, schema_problems
 
@@ -49,53 +49,62 @@ def _rel(root: Path, path: Path) -> str:
 def _lint_files(root: Path, policy: dict[str, Any]) -> list[Problem]:
     """File-level rules that must work even when the config cannot be loaded."""
     problems: list[Problem] = []
-    for gdir in sorted((root / "sources").glob("*/groups/*")):
+    for gdir in sorted(root.glob(layout.GROUP_GLOB)):
         if not gdir.is_dir():
             continue
-        if not (gdir / GROUP_FILE).exists():
-            problems.append(Problem(_rel(root, gdir), f"group folder has no {GROUP_FILE}"))
-        configs = {p.name[: -len(".yml")] for p in gdir.glob("*.yml") if p.name != GROUP_FILE}
-        contracts = {p.name[: -len(CONTRACT_SUFFIX)] for p in gdir.glob(f"*{CONTRACT_SUFFIX}")}
-        for stem in sorted(configs - contracts):
+        if not (gdir / layout.GROUP_FILE).exists():
+            problems.append(Problem(_rel(root, gdir), f"group folder has no {layout.GROUP_FILE}"))
+        for p in sorted(gdir.iterdir()):
+            if p.name not in {layout.GROUP_FILE, layout.TABLES_DIR} and not p.name.startswith("."):
+                problems.append(
+                    Problem(_rel(root, p), f"unexpected in a group folder: tables live in {layout.TABLES_DIR}/<table>/")
+                )
+        for tdir in layout.subdirs(gdir / layout.TABLES_DIR):
+            problems.extend(_lint_table_dir(root, tdir, policy))
+    return problems
+
+
+def _lint_table_dir(root: Path, tdir: Path, policy: dict[str, Any]) -> list[Problem]:
+    problems: list[Problem] = []
+    cfg_path, cpath = tdir / layout.TABLE_FILE, tdir / layout.CONTRACT_FILE
+    for p in sorted(tdir.iterdir()):
+        if p.name not in {layout.TABLE_FILE, layout.CONTRACT_FILE} and not p.name.startswith("."):
             problems.append(
                 Problem(
-                    _rel(root, gdir / f"{stem}.yml"),
-                    f"table has no data contract ({stem}{CONTRACT_SUFFIX}); every table must have one",
+                    _rel(root, p),
+                    f"unexpected file: a table folder holds only {layout.TABLE_FILE} + {layout.CONTRACT_FILE}",
                 )
             )
-        for stem in sorted(contracts - configs):
+    if not cfg_path.exists() or not cpath.exists():
+        if cfg_path.exists():
             problems.append(
                 Problem(
-                    _rel(root, gdir / f"{stem}{CONTRACT_SUFFIX}"),
-                    f"orphan contract: no {stem}.yml declares this table",
+                    _rel(root, cfg_path),
+                    f"table has no data contract ({layout.CONTRACT_FILE}); every table must have one",
                 )
             )
-        for stem in sorted(configs & contracts):
-            cpath = gdir / f"{stem}{CONTRACT_SUFFIX}"
-            try:
-                doc = read_yaml(cpath)
-                table_doc = read_yaml(gdir / f"{stem}.yml")
-            except ConfigError as exc:
-                problems.append(Problem(_rel(root, cpath), str(exc)))
-                continue
-            for msg in schema_problems(doc) + profile_problems(doc) + unsupported_rules(doc, policy):
-                problems.append(Problem(_rel(root, cpath), msg))
-            objects = doc.get("schema") or []
-            physical = objects[0].get("physicalName") if len(objects) == 1 else None
-            if physical and physical != table_doc.get("table"):
-                problems.append(
-                    Problem(
-                        _rel(root, cpath),
-                        f"physicalName '{physical}' does not match table '{table_doc.get('table')}' in {stem}.yml",
-                    )
-                )
-            if str(table_doc.get("table", "")).lower() != stem and not table_doc.get("name"):
-                problems.append(
-                    Problem(
-                        _rel(root, gdir / f"{stem}.yml"),
-                        f"file name should be '{str(table_doc.get('table', '')).lower()}.yml'",
-                    )
-                )
+        if cpath.exists():
+            problems.append(Problem(_rel(root, cpath), f"orphan contract: no {layout.TABLE_FILE} declares this table"))
+        return problems
+    try:
+        doc = read_yaml(cpath)
+        table_doc = read_yaml(cfg_path)
+    except ConfigError as exc:
+        return [*problems, Problem(_rel(root, cpath), str(exc))]
+    for msg in schema_problems(doc) + profile_problems(doc) + unsupported_rules(doc, policy):
+        problems.append(Problem(_rel(root, cpath), msg))
+    objects = doc.get("schema") or []
+    physical = objects[0].get("physicalName") if len(objects) == 1 else None
+    if physical and physical != table_doc.get("table"):
+        problems.append(
+            Problem(
+                _rel(root, cpath),
+                f"physicalName '{physical}' does not match table '{table_doc.get('table')}' in {layout.TABLE_FILE}",
+            )
+        )
+    expected = str(table_doc.get("name") or table_doc.get("table", "")).lower()
+    if tdir.name != expected:
+        problems.append(Problem(_rel(root, tdir), f"table folder should be named '{expected}'"))
     return problems
 
 
@@ -237,7 +246,7 @@ def main(argv: list[str] | None = None) -> int:
     errors = [p for p in problems if p.severity == "error"]
     for p in problems:
         print(f"{p.severity.upper():7} {p.path}: {p.message}")
-    tables = sum(1 for _ in Path(args.root).glob(f"sources/*/groups/*/*{CONTRACT_SUFFIX}"))
+    tables = sum(1 for _ in Path(args.root).glob(layout.CONTRACT_GLOB))
     print(f"lint: {tables} contracts checked, {len(errors)} error(s), {len(problems) - len(errors)} warning(s)")
     return 1 if errors else 0
 

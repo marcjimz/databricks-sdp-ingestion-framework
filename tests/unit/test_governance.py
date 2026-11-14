@@ -20,8 +20,8 @@ def test_registry_has_one_row_per_table_and_layer_with_trace_paths(mini_repo):
     ]
     r = rows[1]
     assert r["pipeline_name"] == "ingest-testsrc-g1-sandbox"
-    assert r["config_path"] == "sources/testsrc/groups/g1/tbl_a.yml"
-    assert r["contract_path"] == "sources/testsrc/groups/g1/tbl_a.odcs.yaml"
+    assert r["config_path"] == "sources/testsrc/groups/g1/tables/tbl_a/table.yml"
+    assert r["contract_path"] == "sources/testsrc/groups/g1/tables/tbl_a/contract.odcs.yaml"
     assert r["cadence_mode"] == "file_arrival" and r["max_gap_minutes"] == 1440
     assert r["scd_type"] == 1 and rows[0]["scd_type"] is None
 
@@ -70,3 +70,20 @@ def test_governed_tag_values_cover_every_pipeline_source_and_layer(mini_repo):
         "ingest_pipeline": ["ingest-testsrc-g1-sandbox", "ingest-testsrc-g2-sandbox"],
         "ingest_source": ["testsrc"],
     }
+
+
+def test_trace_shows_the_pipeline_config_tag_as_deployed(mini_repo, capsys):
+    """`make trace` must print the same ingest_config value the pipeline is tagged with: the group folder."""
+    from ingestion_framework.adapters import get_adapter
+    from ingestion_framework.governance.tags import pipeline_tags
+    from ingestion_framework.trace import trace
+
+    root = mini_repo()
+    cfg = load_config(root, "sandbox")
+    assert trace(root, "sandbox", table="tbl_a", pipeline=None, cli=None) == 0
+    group = cfg.group("testsrc", "g1")
+    deployed = pipeline_tags(cfg, group, get_adapter("qlik_cdc_files"), git_commit="-")[cfg.tag_key("ingest_config")]
+
+    assert deployed == "sources/testsrc/groups/g1/"
+    config_lines = [line for line in capsys.readouterr().out.splitlines() if "ingest_config" in line]
+    assert config_lines and all(line.rstrip().endswith(f"-> {deployed}") for line in config_lines)

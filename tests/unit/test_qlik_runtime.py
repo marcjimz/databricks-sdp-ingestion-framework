@@ -64,6 +64,17 @@ def test_lookback_window_applies_to_change_files_only(mini_repo):
     assert "modifiedAfter" not in frames["tbl_a__full_load"].options
 
 
+def test_a_reload_snapshot_rewritten_under_the_same_name_is_ingested_again(mini_repo):
+    """Qlik may restart LOAD00000001 on a table reload. Auto Loader ingests a path once unless overwrites are
+    allowed, so the full-load flow allows them (the new file time then outranks the old snapshot). Change files
+    are uniquely named, so their flow keeps exactly-once semantics."""
+    cfg = load_config(mini_repo(), "sandbox")
+    frames = {f["name"]: f["fn"]() for f in _define(cfg).flows}
+
+    assert frames["tbl_a__full_load"].options["cloudFiles.allowOverwrites"] == "true"
+    assert "cloudFiles.allowOverwrites" not in frames["tbl_a__changes"].options
+
+
 def test_silver_view_filters_projects_and_carries_contract_expectations(mini_repo):
     cols = copy.deepcopy(DEFAULT_COLUMNS)
     cols[2]["quality"] = [
@@ -86,6 +97,9 @@ def test_silver_view_filters_projects_and_carries_contract_expectations(mini_rep
     assert dict(frame.ops)["select"][0] == "CAST(`ID` AS int) AS `ID`"
     assert view["warn"] == {"id_not_null": "`ID` IS NOT NULL"}
     assert view["fail"] == {"amount_ok": "`AMOUNT` >= 0"}
+    # the cutoff a silver table was built with is visible on the table itself
+    assert dp.streaming_tables["silver_sandbox.testsrc.tbl_a"]["table_properties"]["ingest.reload_cutoff"] == "2026"
+    assert "ingest.reload_cutoff" not in dp.streaming_tables["silver_sandbox.testsrc.tbl_b"]["table_properties"]
     # cutoff is per table
     assert ">=" not in dict(dp.views["tbl_b__silver_source"]["fn"]().ops)["where"]
 

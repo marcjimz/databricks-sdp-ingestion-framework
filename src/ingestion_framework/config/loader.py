@@ -8,6 +8,7 @@ from typing import Any
 
 import yaml
 
+from ingestion_framework.config import layout
 from ingestion_framework.config.models import (
     ConfigError,
     EnvConfig,
@@ -17,9 +18,6 @@ from ingestion_framework.config.models import (
     TableConfig,
 )
 from ingestion_framework.config.resolved import ResolvedConfig
-
-CONTRACT_SUFFIX = ".odcs.yaml"
-GROUP_FILE = "_group.yml"
 
 
 def read_yaml(path: Path) -> Any:
@@ -60,17 +58,17 @@ def load_env(root: Path, env: str) -> EnvConfig:
 
 
 def _load_table(
-    path: Path, source: str, group: str, defaults: Mapping[str, Any], policy: Mapping[str, Any]
+    tdir: Path, source: str, group: str, defaults: Mapping[str, Any], policy: Mapping[str, Any]
 ) -> TableConfig:
     # Imported here: contracts depends on config.models, so a module-level import would cycle.
     from ingestion_framework.contracts.odcs import parse_contract
 
+    path, contract_path = tdir / layout.TABLE_FILE, tdir / layout.CONTRACT_FILE
     raw = read_yaml(path)
     if "table" not in raw:
         raise ConfigError(f"{path}: missing required key 'table'")
-    contract_path = path.with_name(path.name[: -len(".yml")] + CONTRACT_SUFFIX)
     if not contract_path.exists():
-        raise ConfigError(f"{path}: every table needs a data contract; missing {contract_path.name}")
+        raise ConfigError(f"{path}: every table needs a data contract; missing {contract_path}")
     contract = parse_contract(read_yaml(contract_path), contract_path, policy)
     table = str(raw["table"])
     return TableConfig(
@@ -93,14 +91,12 @@ def _load_table(
 
 
 def _load_group(gdir: Path, source: str, defaults: Mapping[str, Any], policy: Mapping[str, Any]) -> GroupConfig:
-    gpath = gdir / GROUP_FILE
+    gpath = gdir / layout.GROUP_FILE
     raw = read_yaml(gpath)
     group = str(raw.get("group") or gdir.name)
     if group != gdir.name:
         raise ConfigError(f"{gpath}: 'group' ({group}) must match its folder name ({gdir.name})")
-    tables = tuple(
-        _load_table(p, source, group, defaults, policy) for p in sorted(gdir.glob("*.yml")) if p.name != GROUP_FILE
-    )
+    tables = tuple(_load_table(t, source, group, defaults, policy) for t in layout.subdirs(gdir / layout.TABLES_DIR))
     return GroupConfig(
         source=source,
         group=group,
@@ -113,7 +109,7 @@ def _load_group(gdir: Path, source: str, defaults: Mapping[str, Any], policy: Ma
 
 
 def load_source(sdir: Path, policy: Mapping[str, Any]) -> SourceConfig:
-    spath = sdir / "source.yml"
+    spath = sdir / layout.SOURCE_FILE
     raw = read_yaml(spath)
     source = str(raw.get("source") or sdir.name)
     if source != sdir.name:
@@ -121,11 +117,8 @@ def load_source(sdir: Path, policy: Mapping[str, Any]) -> SourceConfig:
     if "type" not in raw:
         raise ConfigError(f"{spath}: missing required key 'type' (the source adapter)")
     defaults = raw.get("defaults") or {}
-    groups = tuple(
-        _load_group(g, source, defaults, policy)
-        for g in sorted((sdir / "groups").iterdir())
-        if g.is_dir() and (g / GROUP_FILE).exists()
-    )
+    # Every folder under groups/ is a group; one without group.yml fails here instead of being skipped.
+    groups = tuple(_load_group(g, source, defaults, policy) for g in layout.subdirs(sdir / layout.GROUPS_DIR))
     settings = {k: v for k, v in raw.items() if k not in {"source", "type", "description", "defaults"}}
     return SourceConfig(
         source=source,
@@ -145,6 +138,8 @@ def load_config(root: Path | str, env: str) -> ResolvedConfig:
     policy = framework.expectations
     sources_dir = root / "sources"
     sources = tuple(
-        load_source(s, policy) for s in sorted(sources_dir.iterdir()) if s.is_dir() and (s / "source.yml").exists()
+        load_source(s, policy)
+        for s in sorted(sources_dir.iterdir())
+        if s.is_dir() and (s / layout.SOURCE_FILE).exists()
     )
     return ResolvedConfig(root=root, framework=framework, env=env_cfg, sources=sources)

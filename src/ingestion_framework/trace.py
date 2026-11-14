@@ -61,7 +61,11 @@ def trace(root: Path, env: str, *, table: str | None, pipeline: str | None, cli:
         contract = f"{r['contract_path']}  ({r['contract_id']}@{r['contract_version']})"
         steps = [
             ("1. table tag", tag_key, r["pipeline_name"]),
-            ("2. pipeline tag", cfg.tag_key("ingest_config"), r["config_path"].rsplit("/", 1)[0] + "/"),
+            (
+                "2. pipeline tag",
+                cfg.tag_key("ingest_config"),
+                cfg.rel(cfg.group(r["source"], r["group_name"]).path) + "/",
+            ),
             ("", cfg.tag_key("ingest_code"), r["code_ref"]),
             ("3. table config", "", r["config_path"]),
             ("", "data contract", contract),

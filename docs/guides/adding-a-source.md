@@ -25,13 +25,13 @@ defaults:
 ```
 
 ```yaml
-# sources/salesforce/groups/sales/account.yml
+# sources/salesforce/groups/sales/tables/account/table.yml
 table: Account
 enabled: true
 scd_type: 2
 ```
 
-Every object still gets an `account.odcs.yaml` contract. Lint and the "every table has a contract" rule are
+Every object still gets a `contract.odcs.yaml` next to it. Lint and the "every table has a contract" rule are
 source-agnostic.
 
 ## The adapter (about 60 lines)
@@ -41,25 +41,32 @@ class LakeflowConnectAdapter(SourceAdapter):
     type = "lakeflow_connect"
     runs_framework_code = False
 
-    def datasets(self, cfg, group):          # one bronze table per object
+    def datasets(self, cfg, group):  # one bronze table per object
         return [Dataset("bronze", cfg.table_fqn("bronze", t.source, t.name), t) for t in group.tables]
 
-    def pipeline_body(self, cfg, group):     # managed ingestion pipeline
+    def pipeline_body(self, cfg, group):  # managed ingestion pipeline
         src = cfg.source(group.source)
         return {
             "catalog": cfg.catalog("bronze"),
             "schema": cfg.schema(group.source),
             "ingestion_definition": {
                 "connection_name": src.settings["connection_name"],
-                "objects": [{"table": {
-                    "source_schema": src.settings["connector"]["source_schema"],
-                    "source_table": t.table,
-                    "destination_catalog": cfg.catalog("bronze"),
-                    "destination_schema": cfg.schema(group.source),
-                    "destination_table": t.name,
-                    "table_configuration": {"scd_type": f"SCD_TYPE_{t.scd_type}",
-                                            "primary_keys": list(t.contract.keys) or None},
-                }} for t in group.tables],
+                "objects": [
+                    {
+                        "table": {
+                            "source_schema": src.settings["connector"]["source_schema"],
+                            "source_table": t.table,
+                            "destination_catalog": cfg.catalog("bronze"),
+                            "destination_schema": cfg.schema(group.source),
+                            "destination_table": t.name,
+                            "table_configuration": {
+                                "scd_type": f"SCD_TYPE_{t.scd_type}",
+                                "primary_keys": list(t.contract.keys) or None,
+                            },
+                        }
+                    }
+                    for t in group.tables
+                ],
             },
         }
 ```

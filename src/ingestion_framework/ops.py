@@ -43,8 +43,15 @@ def start(cfg: ResolvedConfig, cli: Cli, summary: dict[str, Any]) -> list[str]:
         if cadence.mode == "continuous":
             pid = pipelines.get(pipeline_key(g.source, g.group))
             if pid:
-                cli.run("pipelines", "start-update", pid)
-                done.append(f"started continuous pipeline {cfg.pipeline_name(g.source, g.group)}")
+                name = cfg.pipeline_name(g.source, g.group)
+                try:
+                    cli.run("pipelines", "start-update", pid)
+                    done.append(f"started continuous pipeline {name}")
+                except CliError as exc:
+                    # Deploying a pipeline as continuous starts it; that is the state we want.
+                    if "active update" not in str(exc):
+                        raise
+                    done.append(f"continuous pipeline {name} is already running")
         else:
             jid = jobs.get(f"job_{g.source}_{g.group}_trigger")
             if jid:

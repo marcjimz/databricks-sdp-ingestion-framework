@@ -30,8 +30,8 @@ def test_table_inherits_source_defaults_and_reads_keys_from_contract(mini_repo):
     assert a.classification == "phi"
     assert a.contract.keys == ("ID",)
     assert [c.name for c in a.contract.columns] == ["ID", "NAME", "AMOUNT"]
-    assert a.config_path.name == "tbl_a.yml"
-    assert a.contract_path.name == "tbl_a.odcs.yaml"
+    assert a.config_path.as_posix().endswith("groups/g1/tables/tbl_a/table.yml")
+    assert a.contract_path.as_posix().endswith("groups/g1/tables/tbl_a/contract.odcs.yaml")
 
 
 def test_local_override_file_is_deep_merged(mini_repo):
@@ -98,8 +98,16 @@ def test_unknown_env_and_unknown_cadence_fail_clearly(mini_repo):
 
 def test_missing_contract_is_a_config_error(mini_repo):
     root = mini_repo()
-    next(Path(root, "sources/testsrc/groups/g1").glob("tbl_a.odcs.yaml")).unlink()
-    with pytest.raises(ConfigError, match=r"tbl_a\.odcs\.yaml"):
+    Path(root, "sources/testsrc/groups/g1/tables/tbl_a/contract.odcs.yaml").unlink()
+    with pytest.raises(ConfigError, match=r"tbl_a/contract\.odcs\.yaml"):
+        load_config(root, "sandbox")
+
+
+def test_group_folder_without_group_file_fails_loudly(mini_repo):
+    """A silently skipped group would delete its pipeline on the next deploy."""
+    root = mini_repo()
+    Path(root, "sources/testsrc/groups/g1/group.yml").unlink()
+    with pytest.raises(ConfigError, match=r"g1/group\.yml"):
         load_config(root, "sandbox")
 
 
