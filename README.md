@@ -155,7 +155,7 @@ contracts/               vendored ODCS v3.2.0 JSON schema (offline lint)
 examples/scaffold/       sample data dictionary + Qlik .dfm used to generate the sample tables
 infra/                   Terraform for a dedicated sandbox (workspace, ADLS landing, identity)
 tests/                   unit tests + enforcement tests (framework guarantees)
-docs/                    concepts, guides, operations, deck
+docs/                    concepts, guides, operations
 ```
 
 ## Documentation
@@ -165,7 +165,6 @@ docs/                    concepts, guides, operations, deck
 | **Concepts** | [Architecture](docs/concepts/architecture.md) · [Data contracts](docs/concepts/data-contracts.md) · [Data quality: expectations, DQM, DQX](docs/concepts/data-quality.md) · [Traceability & tags](docs/concepts/traceability-and-tags.md) |
 | **Guides** | [Getting started (sandbox)](docs/guides/getting-started.md) · [Onboarding tables](docs/guides/onboarding-tables.md) · [Adding a source (Lakeflow Connect)](docs/guides/adding-a-source.md) |
 | **Operations** | [Prerequisites](docs/operations/prerequisites.md) · [Environments & cadence](docs/operations/environments-and-cadence.md) · [Observability & alerts](docs/operations/observability-and-alerts.md) · [Runbook](docs/operations/runbook.md) · [Silver migration & cutover](docs/operations/migration-cutover.md) · [CI example](docs/operations/ci-example.md) |
-| **Deck** | [Overview slides source](docs/deck/slides.json) · `make deck` renders `docs/deck/ingestion-framework-overview.pptx` |
 
 Inspired by the patterns of [databricks-solutions/lakeflow_framework](https://github.com/databricks-solutions/lakeflow_framework):
 group filters, defaults with per-environment overrides, and templated specs.

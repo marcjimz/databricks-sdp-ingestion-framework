@@ -30,9 +30,6 @@ build/
 # Personal environment overrides (deep-merged over conf/environments/<env>.yml)
 conf/environments/*.local.yml
 
-# Generated deck (rebuild with `make deck`; source of truth is docs/deck/slides.json)
-docs/deck/*.pptx
-
 # Terraform (infra/)
 .terraform/
 *.tfstate

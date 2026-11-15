@@ -42,7 +42,7 @@ BVARS = $$($(PY) -m ingestion_framework.prereqs bundle-vars --env $(TARGET))
 
 .PHONY: help install lint test typecheck fmt check tools guard-target guard-profile guard-infra infra-plan \
         infra-sandbox infra-destroy validate preflight \
-        prereqs deploy governance start stop trace reload seed verify scaffold summary deck destroy $(ENVS)
+        prereqs deploy governance start stop trace reload seed verify scaffold summary destroy $(ENVS)
 
 help:
 	@echo "SDP Ingestion Framework"
@@ -54,7 +54,6 @@ help:
 	@echo "    make test                    unit + enforcement tests"
 	@echo "    make scaffold SOURCE=facets GROUP=claims FROM=csv|dfm INPUT=<file|dir> [OWNER=] [STATUS=]"
 	@echo "    make trace <env> TABLE=<name|fqn> | PIPELINE=<name> [OFFLINE=1]"
-	@echo "    make deck                    rebuild docs/deck/ingestion-framework-overview.pptx"
 	@echo ""
 	@echo "  Workspace (PROFILE=<cli profile> required):"
 	@echo "    make prereqs   <env> PROFILE=<admin> [DRY_RUN=1]   apply automatable prerequisites"
@@ -105,9 +104,6 @@ scaffold:
 	$(PY) -m ingestion_framework.scaffold --source $(SOURCE) --group $(GROUP) --from $(FROM) --path $(INPUT) \
 	  $(if $(OWNER),--owner $(OWNER)) $(if $(STATUS),--status $(STATUS))
 	$(PY) -m ingestion_framework.lint
-
-deck:
-	uv run --quiet --with python-pptx python docs/deck/build_deck.py
 
 # ---- guards -----------------------------------------------------------------------------
 # Local tool prerequisites, checked before anything touches a workspace.
