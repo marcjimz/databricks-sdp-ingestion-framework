@@ -1,0 +1,99 @@
+# Facets ingestion: a pipeline bundle for the Lakeflow Framework
+# (https://github.com/databricks-solutions/lakeflow_framework, pinned in ./lakeflow_framework).
+#
+# This bundle holds metadata only: data flow specs under src/dataflows, per-target substitutions under
+# src/pipeline_configs, and the pipelines/jobs below. The framework itself is deployed once (`make framework`)
+# and every pipeline runs its notebook from var.framework_source_path.
+bundle:
+  name: facets_ingestion
+
+include:
+  - resources/*.yml
+
+sync:
+  exclude:  # only src/ and tools/ are needed in the workspace
+    - lakeflow_framework/**
+    - infra/**
+    - scripts/**
+    - static/**
+
+variables:
+  framework_version:
+    description: Lakeflow Framework version to run (the Makefile passes lakeflow_framework/VERSION)
+    default: v0.28.0
+  framework_source_path:
+    description: Workspace path of the deployed framework's src folder (deployed by the same identity, see `make framework`)
+    default: /Workspace/Users/${workspace.current_user.userName}/.bundle/lakeflow_framework/dev/${var.framework_version}/files/src
+  workspace_host:
+    description: Workspace URL the framework uses for API calls
+    default: ${workspace.host}
+  bronze_catalog:
+    description: Catalog of the bronze pipeline (each spec names its full catalog.schema through substitutions)
+  silver_catalog:
+    description: Catalog of the silver pipeline
+  schema:
+    description: Default schema of both pipelines
+    default: facets
+  logical_env:
+    description: Optional suffix to run several copies side by side (start it with '_')
+    default: ""
+
+targets:
+  # Our Databricks sandbox (infra/azure-sandbox). The only target with the synthetic Qlik file generator.
+  sandbox:
+    mode: development
+    default: true
+    variables:
+      bronze_catalog: lff_bronze_sbx
+      silver_catalog: lff_silver_sbx
+    resources:
+      jobs:
+        synthetic_qlik_files:
+          name: facets_synthetic_qlik_files${var.logical_env}
+          description: Sandbox only. Writes Qlik Replicate-shaped Parquet files to the landing volume.
+          max_concurrent_runs: 1
+          parameters:
+            - name: batch
+              default: full
+            - name: table
+              default: CMC_MEME_MEMBER
+            - name: rows
+              default: "100"
+          tasks:
+            - task_key: write_files
+              spark_python_task:
+                python_file: ${workspace.file_path}/tools/synthetic_qlik.py
+                parameters:
+                  - --landing
+                  - /Volumes/lff_bronze_sbx/landing/qlik/facets/membership
+                  - --schemas
+                  - ${workspace.file_path}/src/dataflows/bronze/schemas
+                  - --table
+                  - "{{job.parameters.table}}"
+                  - --batch
+                  - "{{job.parameters.batch}}"
+                  - --rows
+                  - "{{job.parameters.rows}}"
+              environment_key: default
+          environments:
+            - environment_key: default
+              spec:
+                environment_version: "4"
+
+  # Customer environments. Fill in the catalogs and src/pipeline_configs/<target>_substitutions.json, and deploy
+  # with a CLI profile for that workspace (ideally a service principal). No synthetic generator here.
+  dev:
+    mode: production
+    workspace:
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      bronze_catalog: <operational_bronze_dev>
+      silver_catalog: <operational_silver_dev>
+
+  prod:
+    mode: production
+    workspace:
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      bronze_catalog: <operational_bronze_prod>
+      silver_catalog: <operational_silver_prod>

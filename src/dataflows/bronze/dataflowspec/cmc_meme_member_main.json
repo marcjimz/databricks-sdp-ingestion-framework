@@ -1,0 +1,70 @@
+{
+    "data_flow_id": "facets_cmc_meme_member_bronze",
+    "data_flow_group": "facets_bronze",
+    "data_flow_type": "nodespec",
+    "nodes": [
+        {
+            "name": "v_cmc_meme_member_full_load",
+            "node_type": "source",
+            "source_type": "cloud_files",
+            "config": {
+                "mode": "stream",
+                "path": "{landing_root}/membership/CMC_MEME_MEMBER/",
+                "reader_options": {
+                    "cloudFiles.format": "parquet",
+                    "pathGlobFilter": "*.parquet",
+                    "cloudFiles.useManagedFileEvents": "true"
+                },
+                "schema_path": "cmc_meme_member_schema.json",
+                "select_exp": [
+                    "*",
+                    "CAST(NULL AS STRING) AS header__change_seq",
+                    "'L' AS header__change_oper",
+                    "CAST(NULL AS TIMESTAMP) AS header__timestamp",
+                    "_metadata.file_path AS _ingest_file"
+                ]
+            }
+        },
+        {
+            "name": "v_cmc_meme_member_changes",
+            "node_type": "source",
+            "source_type": "cloud_files",
+            "config": {
+                "mode": "stream",
+                "path": "{landing_root}/membership/CMC_MEME_MEMBER__ct/",
+                "reader_options": {
+                    "cloudFiles.format": "parquet",
+                    "pathGlobFilter": "*.parquet",
+                    "cloudFiles.useManagedFileEvents": "true"
+                },
+                "schema_path": "cmc_meme_member_ct_schema.json",
+                "select_exp": [
+                    "*",
+                    "_metadata.file_path AS _ingest_file"
+                ]
+            }
+        },
+        {
+            "name": "target_cmc_meme_member",
+            "node_type": "target",
+            "config": {
+                "database": "{bronze_schema}",
+                "table": "cmc_meme_member",
+                "comment": "Facets CMC_MEME_MEMBER as delivered by Qlik Replicate: the full load (header__change_oper 'L') plus every change.",
+                "table_properties": {
+                    "delta.enableChangeDataFeed": "true"
+                },
+                "sources": [
+                    {
+                        "view": "v_cmc_meme_member_full_load",
+                        "flow": "f_full_load"
+                    },
+                    {
+                        "view": "v_cmc_meme_member_changes",
+                        "flow": "f_changes"
+                    }
+                ]
+            }
+        }
+    ]
+}

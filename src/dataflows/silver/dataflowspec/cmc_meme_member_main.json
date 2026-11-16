@@ -1,0 +1,58 @@
+{
+    "data_flow_id": "facets_cmc_meme_member_silver",
+    "data_flow_group": "facets_silver",
+    "data_flow_type": "nodespec",
+    "nodes": [
+        {
+            "name": "v_bronze_cmc_meme_member",
+            "node_type": "source",
+            "source_type": "delta",
+            "config": {
+                "mode": "stream",
+                "database": "{bronze_schema}",
+                "table": "cmc_meme_member",
+                "where_clause": [
+                    "header__change_oper <> 'B'"
+                ],
+                "select_exp": [
+                    "*",
+                    "coalesce(header__change_seq, '0') AS _cdc_seq"
+                ]
+            }
+        },
+        {
+            "name": "target_cmc_meme_member",
+            "node_type": "target",
+            "config": {
+                "database": "{silver_schema}",
+                "table": "cmc_meme_member",
+                "comment": "Facets CMC_MEME_MEMBER, current state (SCD1). Qlik before-images are skipped; deletes remove the row.",
+                "table_properties": {
+                    "delta.enableChangeDataFeed": "true"
+                },
+                "cdc_settings": {
+                    "keys": [
+                        "MEME_CK"
+                    ],
+                    "scd_type": "1",
+                    "sequence_by": "_cdc_seq",
+                    "apply_as_deletes": "header__change_oper = 'D'",
+                    "except_column_list": [
+                        "header__change_seq",
+                        "header__change_oper",
+                        "header__timestamp",
+                        "_cdc_seq",
+                        "_ingest_file"
+                    ],
+                    "ignore_null_updates": false
+                },
+                "sources": [
+                    {
+                        "view": "v_bronze_cmc_meme_member",
+                        "flow": "f_cdc"
+                    }
+                ]
+            }
+        }
+    ]
+}

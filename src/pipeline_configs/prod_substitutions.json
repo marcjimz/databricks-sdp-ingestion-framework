@@ -1,0 +1,7 @@
+{
+    "tokens": {
+        "landing_root":  "<path where Qlik Replicate lands Facets: a UC volume or abfss:// URL>",
+        "bronze_schema": "<operational_bronze_prod>.facets{logical_env}",
+        "silver_schema": "<operational_silver_prod>.facets{logical_env}"
+    }
+}
