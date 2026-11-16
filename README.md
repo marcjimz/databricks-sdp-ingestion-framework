@@ -1,13 +1,23 @@
-# Facets ingestion on the Lakeflow Framework
+# Healthcare Adaptation on the Lakeflow Framework
 
 ![./static/img/dbx-banner.jpeg](./static/img/dbx-banner.jpeg)
 
-A **pipeline bundle** for the [Lakeflow Framework](https://github.com/databricks-solutions/lakeflow_framework)
-(Databricks Solutions; pinned here as the `lakeflow_framework/` submodule at **v0.28.0**). It loads a Facets table,
-replicated by **Qlik Replicate** into ADLS, with **Auto Loader** into bronze and then into silver with AUTO CDC.
+A healthcare adaptation of the [Lakeflow Framework](https://github.com/databricks-solutions/lakeflow_framework)
+(Databricks Solutions; pinned here as the `lakeflow_framework/` submodule at **v0.28.0**). It is a **pipeline
+bundle** that lands a health plan's source systems in a medallion lakehouse on Databricks.
 
 The repo is metadata only. There is no pipeline code here: the framework builds every pipeline from the data
 flow specs in `src/dataflows`.
+
+## Sources
+
+| Source | Arrives as | Status |
+|---|---|---|
+| Facets (core administration: members, claims, providers) | **Qlik Replicate** CDC files on ADLS, read by **Auto Loader** | One table, `CMC_MEME_MEMBER`, end to end |
+
+Each new source or table follows the same pattern: data flow specs, schemas, and per-environment substitutions.
+
+The Facets example: Qlik's full load and change files land in bronze, then AUTO CDC keeps silver current.
 
 ```
 Qlik Replicate -> ADLS                         Unity Catalog
