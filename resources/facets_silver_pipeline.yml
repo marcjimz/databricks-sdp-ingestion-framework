@@ -1,0 +1,22 @@
+# Silver: bronze change history -> AUTO CDC (SCD1) -> current state per Facets table.
+# Runs the framework notebook; the specs it builds are those in data flow group facets_silver.
+resources:
+  pipelines:
+    facets_silver:
+      name: facets_silver${var.logical_env}
+      channel: CURRENT
+      serverless: true
+      catalog: ${var.silver_catalog}
+      schema: ${var.schema}
+      libraries:
+        - notebook:
+            path: ${var.framework_source_path}/dlt_pipeline
+      configuration:
+        bundle.sourcePath: ${workspace.file_path}/src
+        bundle.target: ${bundle.target}
+        framework.sourcePath: ${var.framework_source_path}
+        workspace.host: ${var.workspace_host}
+        pipeline.layer: silver
+        logicalEnv: ${var.logical_env}
+        pipeline.dataFlowGroupFilter: facets_silver
+      root_path: ${workspace.file_path}/src

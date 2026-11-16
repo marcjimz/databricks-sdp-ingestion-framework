@@ -1,0 +1,13 @@
+{
+    "type": "struct",
+    "fields": [
+        {"name": "MEME_CK", "type": "integer", "nullable": false, "metadata": {"comment": "Member contrived key"}},
+        {"name": "SBSB_CK", "type": "integer", "nullable": false, "metadata": {"comment": "Subscriber contrived key"}},
+        {"name": "GRGR_CK", "type": "integer", "nullable": false, "metadata": {"comment": "Group contrived key"}},
+        {"name": "MEME_SFX", "type": "integer", "nullable": true, "metadata": {"comment": "Member suffix"}},
+        {"name": "MEME_LAST_NAME", "type": "string", "nullable": true, "metadata": {}},
+        {"name": "MEME_FIRST_NAME", "type": "string", "nullable": true, "metadata": {}},
+        {"name": "MEME_SEX", "type": "string", "nullable": true, "metadata": {}},
+        {"name": "MEME_BIRTH_DT", "type": "timestamp", "nullable": true, "metadata": {}}
+    ]
+}

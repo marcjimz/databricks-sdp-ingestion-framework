@@ -1,0 +1,22 @@
+# Bronze: Qlik Replicate files on ADLS -> Auto Loader -> one append-only bronze table per Facets table.
+# Runs the framework notebook; the specs it builds are those in data flow group facets_bronze.
+resources:
+  pipelines:
+    facets_bronze:
+      name: facets_bronze${var.logical_env}
+      channel: CURRENT
+      serverless: true
+      catalog: ${var.bronze_catalog}
+      schema: ${var.schema}
+      libraries:
+        - notebook:
+            path: ${var.framework_source_path}/dlt_pipeline
+      configuration:
+        bundle.sourcePath: ${workspace.file_path}/src
+        bundle.target: ${bundle.target}
+        framework.sourcePath: ${var.framework_source_path}
+        workspace.host: ${var.workspace_host}
+        pipeline.layer: bronze
+        logicalEnv: ${var.logical_env}
+        pipeline.dataFlowGroupFilter: facets_bronze
+      root_path: ${workspace.file_path}/src

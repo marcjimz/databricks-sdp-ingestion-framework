@@ -1,0 +1,7 @@
+{
+    "tokens": {
+        "landing_root":  "/Volumes/lff_bronze_sbx/landing/qlik/facets",
+        "bronze_schema": "lff_bronze_sbx.facets{logical_env}",
+        "silver_schema": "lff_silver_sbx.facets{logical_env}"
+    }
+}

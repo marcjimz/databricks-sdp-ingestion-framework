@@ -1,0 +1,27 @@
+# Session memory (local only)
+MEMORY.md
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Databricks bundle state
+.databricks/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Local tool state
+.isaac/
+.claude/settings.local.json
+
+# Terraform (infra/)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
